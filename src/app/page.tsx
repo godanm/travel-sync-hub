@@ -55,7 +55,6 @@ export default function Dashboard() {
   const t = themes[currentTheme] || themes.classic;
 
   useEffect(() => {
-    // Persistent theme loading for Shirdi/India trip planning
     const savedTheme = localStorage.getItem('app_theme') as keyof typeof themes;
     if (savedTheme && themes[savedTheme]) {
       setCurrentTheme(savedTheme);
@@ -113,7 +112,7 @@ export default function Dashboard() {
         }} className={`${t.card} p-6 rounded-[32px] shadow-xl border ${t.border} mb-12 flex flex-col sm:flex-row gap-3`}>
           <input 
             className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold placeholder-slate-400`} 
-            placeholder="Trip Name (e.g. Shirdi 2026)" 
+            placeholder="Trip Name (e.g. Rocky Point 2026)" 
             value={newTripName} 
             onChange={(e) => setNewTripName(e.target.value)} 
           />
