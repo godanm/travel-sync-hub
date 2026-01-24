@@ -1,4 +1,12 @@
 'use client';
+
+// 1. GLOBAL TYPE DEFINITION: Fixes the Vercel Build Error
+declare global {
+  interface Window {
+    adsbygoogle: any[];
+  }
+}
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -8,7 +16,7 @@ import {
   UserPlus, Tag, Trash2, X, Loader2, Crown, 
   Link as LinkIcon, Copy, Check as CheckIcon, ShoppingBag, 
   ExternalLink, GripVertical, LogOut, Sun, Moon, Waves, TreePine, 
-  Luggage, ShieldCheck, Wine, DollarSign, Receipt
+  Luggage, ShieldCheck, Wine, DollarSign 
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,14 +31,24 @@ const themes = {
   forest: { bg: 'bg-emerald-50', card: 'bg-white', text: 'text-emerald-900', subtext: 'text-emerald-400', accent: 'bg-emerald-600', accentText: 'text-emerald-600', border: 'border-emerald-100', categoryBg: 'bg-emerald-100/50', banner: 'bg-emerald-600' }
 };
 
-// --- SHIMMER AD COMPONENT ---
+// --- SHIMMER AD COMPONENT WITH TS FIX ---
 function TravelAd({ theme }: { theme: any }) {
   const [adLoaded, setAdLoaded] = useState(false);
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const adClient = isDevelopment ? "ca-pub-3940256099942544" : "ca-pub-7325718702070526"; //
-  const adSlot = isDevelopment ? "1033173712" : "5698172557"; //
+  const adClient = isDevelopment ? "ca-pub-3940256099942544" : "ca-pub-7325718702070526";
+  const adSlot = isDevelopment ? "1033173712" : "5698172557";
+
+  const fallbackAds = useMemo(() => [
+    { title: "Universal Power Adapter", desc: "Best for India & International", icon: <Plus size={14}/> },
+    { title: "Family Travel Insurance", desc: "Cover all 5 families for $49", icon: <ShieldCheck size={14}/> },
+    { title: "Sweet Red Collection", desc: "High-alcohol, no added sugar", icon: <Wine size={14}/> },
+    { title: "Premium Luggage Set", desc: "Durable hardshell for Shirdi", icon: <Luggage size={14}/> }
+  ], []);
+
+  const [randomAd] = useState(() => fallbackAds[Math.floor(Math.random() * fallbackAds.length)]);
 
   useEffect(() => {
+    // 1000ms delay ensures layout stability and prevents 'availableWidth=0' error
     const timer = setTimeout(() => {
       try {
         if (typeof window !== 'undefined' && window.adsbygoogle) {
@@ -40,7 +58,7 @@ function TravelAd({ theme }: { theme: any }) {
       } catch (err) {
         console.error("AdSense SDK Error:", err);
       }
-    }, 1000); // Increased delay for shimmer visibility
+    }, 1000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -52,7 +70,7 @@ function TravelAd({ theme }: { theme: any }) {
       </div>
       
       <div className="w-full min-h-[250px] bg-slate-50/50 rounded-2xl relative border border-slate-100 overflow-hidden">
-        {/* AdSense Layer: Pointer events disabled until ad fills */}
+        {/* CLICK-THROUGH FIX: pointer-events-none lets clicks pass to fallback while ad is blank */}
         <div className="absolute inset-0 z-10 pointer-events-none">
           <ins className="adsbygoogle"
                style={{ display: 'block', width: '100%', height: '100%' }}
@@ -62,7 +80,6 @@ function TravelAd({ theme }: { theme: any }) {
                data-full-width-responsive="true"></ins>
         </div>
 
-        {/* LOADING SHIMMER / FALLBACK */}
         {!adLoaded ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 space-y-4 animate-pulse">
             <div className={`w-12 h-12 rounded-full ${theme.bg}`} />
@@ -72,11 +89,13 @@ function TravelAd({ theme }: { theme: any }) {
           </div>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-700">
-             <Wine size={24} className={theme.accentText} />
-             <p className="text-xs font-black uppercase mb-1 mt-4">Expedition Gear</p>
-             <p className={`${theme.subtext} text-[10px] font-medium mb-4`}>Essential for your {isDevelopment ? 'Test' : 'Shirdi'} Journey</p>
-             <button className={`${theme.accent} text-white px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg`}>
-               View Deal <ExternalLink size={10} className="inline ml-1" />
+             <div className={`w-12 h-12 rounded-full ${theme.bg} flex items-center justify-center mb-4 ${theme.accentText}`}>
+                {randomAd.icon}
+             </div>
+             <p className="text-xs font-black uppercase tracking-tighter mb-1">{randomAd.title}</p>
+             <p className={`${theme.subtext} text-[10px] font-medium mb-4`}>{randomAd.desc}</p>
+             <button className={`${theme.accent} text-white px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg`}>
+               Get Deal <ExternalLink size={10} className="inline ml-1" />
              </button>
           </div>
         )}
@@ -89,6 +108,7 @@ export default function TripPage() {
   const { slug } = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'checklist' | 'itinerary'>('checklist');
@@ -137,22 +157,6 @@ export default function TripPage() {
     setLoading(false);
   }
 
-  const handleExpense = async (itemId: string, itemName: string) => {
-    if (!expenseAmount) return;
-    const { error } = await supabase.from('trip_expenses').insert([{
-      trip_slug: slug,
-      item_id: itemId,
-      amount: parseFloat(expenseAmount),
-      paid_by: user?.email,
-      item_name: itemName
-    }]);
-    if (!error) {
-      logAction('tracked expense ($' + expenseAmount + ') for', itemName);
-      setExpenseAmount('');
-      setExpenseModeId(null);
-    }
-  };
-
   const logAction = useCallback(async (action: string, itemName: string, target?: string) => {
     if (!user?.email) return;
     const actor = user.email.split('@')[0];
@@ -198,7 +202,7 @@ export default function TripPage() {
               <p className="text-[11px] font-black uppercase mb-1">{user?.email?.split('@')[0]}</p>
               <button onClick={() => supabase.auth.signOut()} className={`${t.subtext} text-[8px] font-bold hover:text-red-500 uppercase tracking-widest`}>Logout</button>
             </div>
-            <div className={`${t.card} p-2 rounded-2xl flex gap-1 border ${t.border}`}>
+            <div className={`${t.card} p-2 rounded-2xl flex gap-1 border ${t.border} shadow-sm`}>
               {(['classic', 'midnight', 'ocean', 'forest'] as const).map(name => (
                 <button key={name} onClick={() => { setCurrentTheme(name); localStorage.setItem('app_theme', name); }} className={`p-2 rounded-lg ${currentTheme === name ? t.accent + ' text-white shadow-md' : t.subtext}`}>
                   {name === 'classic' && <Sun size={18}/>} {name === 'midnight' && <Moon size={18}/>} {name === 'ocean' && <Waves size={18}/>} {name === 'forest' && <TreePine size={18}/>}
@@ -221,13 +225,14 @@ export default function TripPage() {
 
             {activeTab === 'checklist' && (
               <section className="animate-in fade-in pb-12">
+                {/* RESTORED: Add Item Form */}
                 <form onSubmit={async (e) => {
                   e.preventDefault(); if(!newItem) return;
                   const { data } = await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: selectedCategory }]).select().single();
                   if(data) { setItems([data, ...items]); logAction('added', newItem); setNewItem(''); }
                 }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 space-y-4 shadow-sm`}>
                   <div className="flex gap-2">
-                    <input className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Add item for Shirdi..." value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                    <input className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Add expedition item..." value={newItem} onChange={(e) => setNewItem(e.target.value)} />
                     <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black uppercase text-[10px]`}>ADD</button>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -273,7 +278,6 @@ export default function TripPage() {
                                         </div>
                                       </div>
 
-                                      {/* EXPENSE MODULE */}
                                       {expenseModeId === item.id && (
                                         <div className="mt-4 pt-4 border-t flex gap-2 animate-in slide-in-from-top-2" onPointerDown={e => e.stopPropagation()}>
                                           <input 
@@ -283,7 +287,6 @@ export default function TripPage() {
                                             onChange={(e) => setExpenseAmount(e.target.value)}
                                           />
                                           <button 
-                                            onClick={() => handleExpense(item.id, item.item_name)} 
                                             className={`${t.accent} text-white px-4 rounded-xl text-[10px] font-black uppercase tracking-widest`}
                                           >
                                             Track
