@@ -27,7 +27,6 @@ export default function TripPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   
-  // -- State --
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'checklist' | 'itinerary'>('checklist');
@@ -110,6 +109,17 @@ export default function TripPage() {
     }
   }, [slug, user]);
 
+  const onDragEnd = async (result: DropResult) => {
+    const { destination, draggableId } = result;
+    if (!destination) return;
+    const item = items.find(i => i.id === draggableId);
+    if (item && item.category_name !== destination.droppableId) {
+      await supabase.from('checklist_items').update({ category_name: destination.droppableId }).eq('id', draggableId);
+      setItems(items.map(i => i.id === draggableId ? { ...i, category_name: destination.droppableId } : i));
+      logAction('moved', item.item_name);
+    }
+  };
+
   const copyJoinLink = () => {
     if (!tripData?.share_token) return;
     const url = `${window.location.origin}/join/${tripData.share_token}`;
@@ -127,11 +137,7 @@ export default function TripPage() {
       <p className={`${t.subtext} mb-8 max-w-xs font-bold`}>
         {!user ? "Please login to access GatherGo." : "You are not a member of this trip group."}
       </p>
-      {!user ? (
-        <button onClick={() => router.push('/login')} className={`${t.accent} text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest`}>Go to Login</button>
-      ) : (
-        <Link href="/" className={`${t.accent} text-white px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-widest`}>Back to Dashboard</Link>
-      )}
+      <button onClick={() => router.push('/login')} className={`${t.accent} text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest`}>Go to Login</button>
     </div>
   );
 
@@ -147,8 +153,8 @@ export default function TripPage() {
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] font-black uppercase tracking-tighter leading-none mb-1">{user.email?.split('@')[0]}</p>
+            <div className="text-right">
+              <p className="text-[11px] font-black uppercase tracking-tighter leading-none mb-1">{user?.email?.split('@')[0]}</p>
               <button onClick={() => supabase.auth.signOut()} className={`${t.subtext} text-[8px] font-bold hover:text-red-500`}>LOGOUT</button>
             </div>
             <div className={`${t.card} p-2 rounded-2xl flex gap-1 border ${t.border} shadow-sm`}>
@@ -177,7 +183,6 @@ export default function TripPage() {
 
             {activeTab === 'checklist' ? (
               <section className="animate-in fade-in pb-12">
-                {/* NEW: Permanent Invite Link for Group Lead */}
                 {isOwner && (
                   <div className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 shadow-sm flex items-center justify-between gap-4`}>
                     <div className="flex items-center gap-3">
@@ -209,14 +214,7 @@ export default function TripPage() {
                   </div>
                 </form>
 
-                <DragDropContext onDragEnd={(res) => {
-                  if (!res.destination) return;
-                  const id = res.draggableId;
-                  const cat = res.destination.droppableId;
-                  supabase.from('checklist_items').update({ category_name: cat }).eq('id', id).then(() => {
-                    setItems(items.map(i => i.id === id ? { ...i, category_name: cat } : i));
-                  });
-                }}>
+                <DragDropContext onDragEnd={onDragEnd}>
                   <div className="space-y-12">
                     {dbCategories.map(category => (
                       <Droppable key={category.id} droppableId={category.name}>
@@ -233,6 +231,7 @@ export default function TripPage() {
                                     <div ref={provided.innerRef} {...provided.draggableProps} className={`${t.card} p-5 rounded-3xl border ${t.border} shadow-sm flex flex-col`}>
                                       <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-4">
+                                          {/* FIXED: DRAG HANDLE RESTRICTED TO ICON ONLY */}
                                           <div {...provided.dragHandleProps} className={t.subtext}><GripVertical size={20} /></div>
                                           <button onClick={async (e) => {
                                             e.stopPropagation();
@@ -292,7 +291,22 @@ export default function TripPage() {
                   <input type="date" className={`w-full p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
                   <button className={`${t.accent} text-white py-4 rounded-2xl font-black uppercase w-full`}>Add Event</button>
                 </form>
-                {/* Itinerary timeline mapping... */}
+                <div className={`relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-0 before:w-0.5 before:${t.border.replace('border', 'bg')}`}>
+                  {events.map(event => (
+                    <div key={event.id} className="relative">
+                      <div className={`absolute -left-[32px] top-1.5 w-6 h-6 ${t.card} border-4 ${t.accentText.replace('text', 'border')} rounded-full shadow-sm`} />
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className={`text-[10px] font-black uppercase tracking-widest ${t.accentText}`}>
+                            {new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
+                          </p>
+                          <h4 className="text-xl font-black flex items-center gap-2 mt-1"><MapPin size={18} className={t.subtext} /> {event.title}</h4>
+                        </div>
+                        <button onClick={async () => { await supabase.from('itinerary_events').delete().eq('id', event.id); setEvents(events.filter(e => e.id !== event.id)); }} className={t.subtext}><Trash2 size={18} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
           </div>
