@@ -25,7 +25,7 @@ const themes = {
 export default function TripPage() {
   const { slug } = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth(); // Auth context for the five families
   
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
   const [loading, setLoading] = useState(true);
@@ -56,10 +56,11 @@ export default function TripPage() {
       if (user && slug) {
         loadInitialData();
       } else if (!user) {
-        setLoading(false);
+        // Redirect to login to avoid "Access Denied" flash on logout
+        router.push('/login');
       }
     }
-  }, [user, authLoading, slug]);
+  }, [user, authLoading, slug, router]);
 
   async function loadInitialData() {
     setLoading(true);
@@ -130,17 +131,6 @@ export default function TripPage() {
 
   if (loading || authLoading) return <div className={`min-h-screen flex items-center justify-center ${t.bg}`}><Loader2 className={`animate-spin ${t.accentText}`} size={48} /></div>;
 
-  if (!user || isMember === false) return (
-    <div className={`min-h-screen flex flex-col items-center justify-center ${t.bg} p-6 text-center`}>
-      <X size={64} className="text-red-500 mb-4" />
-      <h2 className="text-2xl font-black uppercase mb-2">Access Denied</h2>
-      <p className={`${t.subtext} mb-8 max-w-xs font-bold`}>
-        {!user ? "Please login to access GatherGo." : "You are not a member of this trip group."}
-      </p>
-      <button onClick={() => router.push('/login')} className={`${t.accent} text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest`}>Go to Login</button>
-    </div>
-  );
-
   return (
     <main className={`min-h-screen ${t.bg} ${t.text} p-4 md:p-12 transition-colors duration-500`}>
       <div className="max-w-[1440px] mx-auto">
@@ -155,11 +145,11 @@ export default function TripPage() {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <p className="text-[11px] font-black uppercase tracking-tighter leading-none mb-1">{user?.email?.split('@')[0]}</p>
-              <button onClick={() => supabase.auth.signOut()} className={`${t.subtext} text-[8px] font-bold hover:text-red-500`}>LOGOUT</button>
+              <button onClick={() => supabase.auth.signOut()} className={`${t.subtext} text-[8px] font-bold hover:text-red-500 transition-colors uppercase`}>Logout</button>
             </div>
             <div className={`${t.card} p-2 rounded-2xl flex gap-1 border ${t.border} shadow-sm`}>
               {(['classic', 'midnight', 'ocean', 'forest'] as const).map(name => (
-                <button key={name} onClick={() => { setCurrentTheme(name); localStorage.setItem('app_theme', name); }} className={`p-2 rounded-lg ${currentTheme === name ? t.accent + ' text-white' : t.subtext}`}>
+                <button key={name} onClick={() => { setCurrentTheme(name); localStorage.setItem('app_theme', name); }} className={`p-2 rounded-lg ${currentTheme === name ? t.accent + ' text-white shadow-md' : t.subtext}`}>
                   {name === 'classic' && <Sun size={18}/>}
                   {name === 'midnight' && <Moon size={18}/>}
                   {name === 'ocean' && <Waves size={18}/>}
@@ -192,7 +182,7 @@ export default function TripPage() {
                         <p className={`${t.subtext} text-[9px] font-bold truncate max-w-[200px]`}>.../join/{tripData?.share_token}</p>
                       </div>
                     </div>
-                    <button onClick={copyJoinLink} className={`${t.accent} text-white px-6 py-2.5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 active:scale-95 transition-all`}>
+                    <button onClick={copyJoinLink} className={`${t.accent} text-white px-6 py-2.5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 active:scale-95 transition-all shadow-lg shadow-current/10`}>
                       {copied ? <><CheckIcon size={14}/> COPIED</> : <><Copy size={14}/> COPY LINK</>}
                     </button>
                   </div>
@@ -205,11 +195,11 @@ export default function TripPage() {
                 }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 shadow-sm space-y-4`}>
                   <div className="flex gap-2">
                     <input className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Add item..." value={newItem} onChange={(e) => setNewItem(e.target.value)} />
-                    <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black`}>ADD</button>
+                    <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black shadow-lg shadow-current/10`}>ADD</button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {dbCategories.map(cat => (
-                      <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.name)} className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all ${selectedCategory === cat.name ? `${t.accent} text-white` : `${t.bg} ${t.subtext}`}`}>{cat.name}</button>
+                      <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.name)} className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all ${selectedCategory === cat.name ? `${t.accent} text-white shadow-md` : `${t.bg} ${t.subtext}`}`}>{cat.name}</button>
                     ))}
                   </div>
                 </form>
@@ -228,24 +218,25 @@ export default function TripPage() {
                               {items.filter(i => i.category_name === category.name).map((item, index) => (
                                 <Draggable key={item.id} draggableId={item.id} index={index}>
                                   {(provided) => (
-                                    /* THE FIX: {...provided.dragHandleProps} is now on the card container */
                                     <div 
                                       ref={provided.innerRef} 
                                       {...provided.draggableProps} 
                                       {...provided.dragHandleProps} 
-                                      className={`${t.card} p-5 rounded-3xl border ${t.border} shadow-sm flex flex-col cursor-grab active:cursor-grabbing`}
+                                      className={`${t.card} p-5 rounded-3xl border ${t.border} shadow-sm flex flex-col cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md`}
                                     >
                                       <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-4">
                                           <div className={t.subtext}><GripVertical size={20} /></div>
-                                          {/* stopPropagation ensures checking a box doesn't trigger a drag */}
-                                          <button onPointerDown={e => e.stopPropagation()} onClick={async (e) => {
-                                            e.stopPropagation();
-                                            const newState = !item.is_packed;
-                                            await supabase.from('checklist_items').update({ is_packed: newState }).eq('id', item.id);
-                                            setItems(items.map(i => i.id === item.id ? { ...i, is_packed: newState } : i));
-                                            logAction(newState ? 'completed' : 'updated', item.item_name);
-                                          }}>
+                                          <button 
+                                            onPointerDown={e => e.stopPropagation()} 
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              const newState = !item.is_packed;
+                                              await supabase.from('checklist_items').update({ is_packed: newState }).eq('id', item.id);
+                                              setItems(items.map(i => i.id === item.id ? { ...i, is_packed: newState } : i));
+                                              logAction(newState ? 'completed' : 'updated', item.item_name);
+                                            }}
+                                          >
                                             {item.is_packed ? <CheckCircle2 className="text-green-500" size={24} /> : <Circle className={t.subtext} size={24} />}
                                           </button>
                                           <p className={`font-bold ${item.is_packed ? `line-through ${t.subtext}` : ''}`}>{item.item_name}</p>
@@ -258,17 +249,28 @@ export default function TripPage() {
                                       {claimingId === item.id && (
                                         <div className="mt-4 pt-4 border-t flex flex-wrap gap-2" onPointerDown={e => e.stopPropagation()}>
                                           {tripMembers.map(member => (
-                                            <button key={member.id} onClick={async (e) => {
-                                              e.stopPropagation();
-                                              const targetName = member.family_name || member.user_email?.split('@')[0];
-                                              const current = item.claimed_by_name || [];
-                                              const isAdding = !current.includes(targetName);
-                                              const updated = isAdding ? [...current, targetName] : current.filter((n:string) => n !== targetName);
-                                              await supabase.from('checklist_items').update({ claimed_by_name: updated }).eq('id', item.id);
-                                              setItems(items.map(i => i.id === item.id ? { ...i, claimed_by_name: updated } : i));
-                                              logAction(isAdding ? 'claimed' : 'unclaimed', item.item_name, targetName);
-                                            }} className={`px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all ${item.claimed_by_name?.includes(member.family_name || member.user_email?.split('@')[0]) ? t.accent + ' text-white border-transparent' : `${t.bg} ${t.subtext}`}`}>
-                                              <span className="flex items-center gap-1">{member.family_name || member.user_email?.split('@')[0]}{member.status === 'Owner' && <Crown size={8} />}</span>
+                                            <button 
+                                              key={member.id} 
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                const targetName = member.family_name || member.user_email?.split('@')[0];
+                                                const current = item.claimed_by_name || [];
+                                                const isAdding = !current.includes(targetName);
+                                                const updated = isAdding ? [...current, targetName] : current.filter((n:string) => n !== targetName);
+                                                await supabase.from('checklist_items').update({ claimed_by_name: updated }).eq('id', item.id);
+                                                setItems(items.map(i => i.id === item.id ? { ...i, claimed_by_name: updated } : i));
+                                                logAction(isAdding ? 'claimed' : 'unclaimed', item.item_name, targetName);
+                                              }} 
+                                              className={`px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all ${
+                                                item.claimed_by_name?.includes(member.family_name || member.user_email?.split('@')[0]) 
+                                                  ? t.accent + ' text-white border-transparent shadow-lg shadow-current/10' 
+                                                  : `${t.bg} ${t.subtext}`
+                                              }`}
+                                            >
+                                              <span className="flex items-center gap-1">
+                                                {member.family_name || member.user_email?.split('@')[0]}
+                                                {member.status === 'Owner' && <Crown size={8} />}
+                                              </span>
                                             </button>
                                           ))}
                                         </div>
@@ -288,7 +290,31 @@ export default function TripPage() {
               </section>
             ) : (
               <section className="animate-in fade-in pb-20">
-                {/* Itinerary Logic */}
+                <form onSubmit={async (e) => {
+                  e.preventDefault(); if(!eventTitle || !eventDate) return;
+                  const { data } = await supabase.from('itinerary_events').insert([{ title: eventTitle, event_date: eventDate, trip_slug: slug }]).select().single();
+                  if(data) { setEvents([...events, data].sort((a,b) => a.event_date.localeCompare(b.event_date))); logAction('scheduled', eventTitle); setEventTitle(''); }
+                }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-12 space-y-4 shadow-sm`}>
+                  <input className={`w-full p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Itinerary Event..." value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} />
+                  <input type="date" className={`w-full p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                  <button className={`${t.accent} text-white py-4 rounded-2xl font-black uppercase w-full shadow-lg shadow-current/10`}>Add Event</button>
+                </form>
+                <div className={`relative pl-8 space-y-10 before:absolute before:left-[11px] before:top-2 before:bottom-0 before:w-0.5 before:${t.border.replace('border', 'bg')}`}>
+                  {events.map(event => (
+                    <div key={event.id} className="relative">
+                      <div className={`absolute -left-[32px] top-1.5 w-6 h-6 ${t.card} border-4 ${t.accentText.replace('text', 'border')} rounded-full shadow-sm`} />
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className={`text-[10px] font-black uppercase tracking-widest ${t.accentText}`}>
+                            {new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
+                          </p>
+                          <h4 className="text-xl font-black flex items-center gap-2 mt-1"><MapPin size={18} className={t.subtext} /> {event.title}</h4>
+                        </div>
+                        <button onClick={async () => { await supabase.from('itinerary_events').delete().eq('id', event.id); setEvents(events.filter(e => e.id !== event.id)); }} className={`${t.subtext} hover:text-red-500 transition-colors`}><Trash2 size={18} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
           </div>
