@@ -8,7 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { 
   MapPin, Target, Sun, Moon, Waves, TreePine, 
-  Loader2, Link as LinkIcon, ArrowLeft, Copy, Check 
+  Loader2, Link as LinkIcon, ArrowLeft, Copy, Check, Clock
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -45,6 +45,12 @@ export default function TripPage() {
   const [tripMembers, setTripMembers] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
+  
+  // RESTORED: Form States
+  const [newItem, setNewItem] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDate, setEventDate] = useState('');
 
   const t = themes[currentTheme] || themes.classic;
 
@@ -68,46 +74,42 @@ export default function TripPage() {
       setTripMembers(allMembers.data || []);
       setActivities(logs.data || []);
       setDbCategories(cats.data || []);
+      if (cats.data?.length && !selectedCategory) setSelectedCategory(cats.data[0].name);
     }
     setLoading(false);
   }, [slug, user]);
 
-  const logAction = useCallback(async (action: string, itemName: string, target?: string) => {
+  const logAction = useCallback(async (action: string, itemName: string) => {
     if (!user?.email) return;
     const actor = user.email.split('@')[0];
-    const fullAction = target ? `${action} ${itemName} for ${target}` : `${action} ${itemName}`;
-    await supabase.from('activity_log').insert([{ trip_slug: slug, user_name: actor, action_type: fullAction, item_name: '' }]);
+    await supabase.from('activity_log').insert([{ 
+      trip_slug: slug, 
+      user_name: actor, 
+      action_type: `${action} ${itemName}`, 
+      item_name: itemName 
+    }]);
     loadInitialData();
   }, [slug, user, loadInitialData]);
 
-  // RESTORED: This handles the actual Supabase database calls
+  // RESTORED: Core Update Logic for Deletion & Claiming
   const handleUpdate = async (type: string, payload: any) => {
     if (type === 'claimItem') {
       const { item, handle } = payload;
       const current = item.claimed_by_name || [];
       const updated = current.includes(handle) ? current.filter((h:string) => h !== handle) : [...current, handle];
-      
-      const { error } = await supabase.from('checklist_items').update({ claimed_by_name: updated }).eq('id', item.id);
-      if (!error) {
-        logAction(current.includes(handle) ? 'unclaimed' : 'claimed', item.item_name, handle);
-      }
+      await supabase.from('checklist_items').update({ claimed_by_name: updated }).eq('id', item.id);
     } else if (type === 'deleteItem') {
-      const { error } = await supabase.from('checklist_items').delete().eq('id', payload);
-      if (!error) logAction('removed', 'an item');
+      await supabase.from('checklist_items').delete().eq('id', payload);
+      logAction('removed', 'an item');
     } else if (type === 'togglePacked') {
       const newState = !payload.is_packed;
-      const { error } = await supabase.from('checklist_items').update({ is_packed: newState }).eq('id', payload.id);
-      if (!error) logAction(newState ? 'completed' : 'updated', payload.item_name);
+      await supabase.from('checklist_items').update({ is_packed: newState }).eq('id', payload.id);
+      logAction(newState ? 'completed' : 'updated', payload.item_name);
+    } else if (type === 'deleteEvent') { // Itinerary support
+      await supabase.from('itinerary_events').delete().eq('id', payload);
+      logAction('removed', 'event from itinerary');
     }
     loadInitialData();
-  };
-
-  const copyJoinLink = () => {
-    if (!tripData?.share_token) return;
-    const link = `${window.location.origin}/join/${tripData.share_token}`;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   useEffect(() => {
@@ -126,7 +128,12 @@ export default function TripPage() {
         <header className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 bg-indigo-900 rounded-2xl flex items-center justify-center shadow-lg"><MapPin size={24} className="text-white fill-white" /></div>
-             <h1 className="text-3xl font-black capitalize leading-none tracking-tight">{String(slug).replace(/-/g, ' ')}</h1>
+             <div>
+               <Link href="/" className={`${t.subtext} flex items-center gap-1 font-black mb-1 hover:${t.accentText} uppercase text-[8px]`}>
+                 <ArrowLeft size={10} /> Dashboard
+               </Link>
+               <h1 className="text-3xl font-black capitalize leading-none tracking-tight">{String(slug).replace(/-/g, ' ')}</h1>
+             </div>
           </div>
           
           <div className="flex items-center gap-6">
@@ -142,19 +149,45 @@ export default function TripPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-3 order-2 lg:order-1">
-             <MemberDirectory members={tripMembers} theme={t} isOwner={isOwner} tripSlug={slug as string} onMemberRemoved={loadInitialData} logAction={logAction} />
+             <MemberDirectory members={tripMembers} theme={t} isOwner={isOwner} tripSlug={slug as string} onMemberRemoved={loadInitialData} logAction={() => {}} />
              <TravelAd theme={t} />
           </div>
 
           <div className="lg:col-span-6 order-1 lg:order-2">
-            {isOwner && (
-              <div className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 flex items-center justify-between shadow-sm`}>
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl ${t.categoryBg} ${t.accentText}`}><LinkIcon size={18} /></div>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Share Hub Link</p>
+            {/* RESTORED: Checklist Addition Form */}
+            {activeTab === 'checklist' && (
+              <form onSubmit={async (e) => {
+                e.preventDefault(); if(!newItem) return;
+                const { data } = await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: selectedCategory }]).select().single();
+                if(data) { logAction('added', newItem); setNewItem(''); }
+              }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 space-y-4 shadow-sm`}>
+                <div className="flex gap-2">
+                  <input className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Add expedition item..." value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                  <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black uppercase text-[10px]`}>ADD</button>
                 </div>
-                <button onClick={copyJoinLink} className={`${t.accent} text-white px-6 py-2.5 rounded-2xl font-black uppercase text-[10px]`}>{copied ? 'COPIED' : 'COPY LINK'}</button>
-              </div>
+                <div className="flex flex-wrap gap-2">
+                  {dbCategories.map(cat => (
+                    <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.name)} className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all ${selectedCategory === cat.name ? `${t.accent} text-white shadow-md` : `${t.bg} ${t.subtext}`}`}>{cat.name}</button>
+                  ))}
+                </div>
+              </form>
+            )}
+
+            {/* RESTORED: Itinerary Addition Form */}
+            {activeTab === 'itinerary' && (
+              <form onSubmit={async (e) => {
+                e.preventDefault(); if(!eventTitle || !eventDate) return;
+                const { error } = await supabase.from('itinerary_events').insert([{ title: eventTitle, event_date: eventDate, trip_slug: slug }]);
+                if(!error) { logAction('scheduled', eventTitle); setEventTitle(''); setEventDate(''); }
+              }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 space-y-4 shadow-sm animate-in fade-in`}>
+                <div className="space-y-4">
+                  <input className={`w-full p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Event Title (e.g. Flight to India)..." value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} />
+                  <div className="flex gap-2">
+                    <input type="date" className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                    <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black uppercase text-[10px]`}>ADD EVENT</button>
+                  </div>
+                </div>
+              </form>
             )}
 
             <div className={`flex gap-8 mb-8 border-b ${t.border}`}>
@@ -163,16 +196,9 @@ export default function TripPage() {
             </div>
 
             {activeTab === 'checklist' ? (
-              <ChecklistModule 
-                items={items} 
-                categories={dbCategories} 
-                members={tripMembers} 
-                theme={t} 
-                onUpdate={handleUpdate} // Connected to logic above
-                logAction={logAction} 
-              />
+              <ChecklistModule items={items} categories={dbCategories} members={tripMembers} theme={t} onUpdate={handleUpdate} />
             ) : (
-              <ItineraryModule events={events} theme={t} onUpdate={loadInitialData} slug={slug} />
+              <ItineraryModule events={events} theme={t} onUpdate={handleUpdate} />
             )}
           </div>
 
