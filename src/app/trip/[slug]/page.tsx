@@ -1,18 +1,16 @@
 'use client';
 
-// GLOBAL TYPE DEFINITION: Resolves Vercel build-blocking errors
+// GLOBAL TYPE DEFINITION
 declare global { interface Window { adsbygoogle: any[]; } }
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { 
-  Target, Sun, Moon, Loader2, Link as LinkIcon, 
-  FileDown, ArrowLeft, LogOut, User as UserIcon
+  Target, Sun, Moon, Waves, TreePine, Loader2, 
+  Link as LinkIcon, FileDown, ArrowLeft, LogOut, User as UserIcon
 } from 'lucide-react';
 import Link from 'next/link';
-
-// PDF & Settlement Engine
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -39,7 +37,21 @@ export default function TripPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   
+  // 1. THEME PERSISTENCE LOGIC
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('gathergo_theme') as keyof typeof themes;
+    if (savedTheme && themes[savedTheme]) {
+      setCurrentTheme(savedTheme);
+    }
+  }, []);
+
+  const handleThemeChange = (newTheme: keyof typeof themes) => {
+    setCurrentTheme(newTheme);
+    localStorage.setItem('gathergo_theme', newTheme);
+  };
+
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'checklist' | 'itinerary' | 'expenses'>('checklist');
   const [isBriefingOpen, setIsBriefingOpen] = useState(false);
@@ -96,7 +108,6 @@ export default function TripPage() {
     loadInitialData();
   }, [slug, user, loadInitialData]);
 
-  // SETTLEMENT LOGIC
   const settlementBalances = useMemo(() => {
     const totals: Record<string, number> = {};
     if (!tripMembers || tripMembers.length === 0) return totals;
@@ -106,7 +117,6 @@ export default function TripPage() {
       const amountVal = parseFloat(exp.amount);
       const targets = (exp.split_with && exp.split_with.length > 0) 
         ? exp.split_with : tripMembers.map((m: any) => m.user_email.split('@')[0]);
-      
       const share = amountVal / (targets.length || 1);
       if (totals[payer] !== undefined) totals[payer] += amountVal;
       targets.forEach((handle: string) => { if (totals[handle] !== undefined) totals[handle] -= share; });
@@ -114,7 +124,6 @@ export default function TripPage() {
     return totals;
   }, [expenses, tripMembers]);
 
-  // PDF SETTLEMENT EXPORT
   const downloadExpensePDF = () => {
     const doc = new jsPDF();
     const tripTitle = String(slug).replace(/-/g, ' ').toUpperCase();
@@ -173,13 +182,22 @@ export default function TripPage() {
   if (loading || authLoading) return <div className={`min-h-screen flex items-center justify-center ${t.bg}`}><Loader2 className="animate-spin" size={48} /></div>;
 
   return (
-    <main className={`min-h-screen ${t.bg} ${t.text}`}>
-      {/* 1. UTILITY HEADER */}
+    <main className={`min-h-screen ${t.bg} ${t.text} transition-colors duration-500`}>
+      {/* UTILITY HEADER: Persisting identity */}
       <div className={`${t.bg} border-b ${t.border} px-4 md:px-12 py-3 flex items-center justify-between`}>
         <Link href="/" className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:${t.accentText} transition-colors`}>
           <ArrowLeft size={12} /> Dashboard
         </Link>
+        
         <div className="flex items-center gap-6">
+          {/* THEME SELECTION DROPDOWN */}
+          <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
+            <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`} title="Classic Mode"><Sun size={14}/></button>
+            <button onClick={() => handleThemeChange('midnight')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'midnight' ? t.accent + ' text-white' : t.subtext}`} title="Midnight Mode"><Moon size={14}/></button>
+            <button onClick={() => handleThemeChange('ocean')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'ocean' ? t.accent + ' text-white' : t.subtext}`} title="Ocean Mode"><Waves size={14}/></button>
+            <button onClick={() => handleThemeChange('forest')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'forest' ? t.accent + ' text-white' : t.subtext}`} title="Forest Mode"><TreePine size={14}/></button>
+          </div>
+
           <div className="flex items-center gap-2">
             <UserIcon size={12} className={t.accentText} />
             <p className="text-[9px] font-black uppercase">{user?.email?.split('@')[0]}</p>
@@ -190,10 +208,10 @@ export default function TripPage() {
         </div>
       </div>
 
-      {/* 2. STICKY NAVIGATION: Tabs centered properly over main content */}
+      {/* STICKY NAV: Centered properly over content */}
       <nav className={`sticky top-0 z-50 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
         <div className="max-w-[1440px] mx-auto grid grid-cols-12 items-end">
-          <div className="col-span-4" /> {/* Sidebar Spacer */}
+          <div className="col-span-4" /> 
           <div className="col-span-8 flex justify-between items-end">
             <div className="flex gap-10">
               {(['checklist', 'itinerary', 'expenses'] as const).map((tab) => (
@@ -216,10 +234,8 @@ export default function TripPage() {
       <div className="max-w-[1440px] mx-auto p-4 md:p-12">
         <ActionBriefing isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} items={items} user={user} theme={t} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          {/* 3. SIDEBAR: NOW ON THE LEFT */}
-          <div className="lg:col-span-4 space-y-8 animate-in slide-in-from-left-4 duration-700">
+        <div className="grid grid-cols-12 gap-10">
+          <div className="col-span-4 space-y-8 animate-in slide-in-from-left-4 duration-700">
             {isOwner && (
                <div className={`${t.card} p-6 rounded-[32px] border ${t.border} flex items-center justify-between shadow-sm`}>
                  <div className="flex items-center gap-3"><LinkIcon size={18} className={t.accentText}/><p className="text-[10px] font-black uppercase tracking-widest">Invite Link</p></div>
@@ -228,11 +244,9 @@ export default function TripPage() {
             )}
             <MemberDirectory members={tripMembers} theme={t} isOwner={isOwner} tripSlug={slug as string} onMemberRemoved={loadInitialData} logAction={() => {}} />
             <ActivityFeed activities={activities} theme={t} />
-            <TravelAd theme={t} />
           </div>
 
-          {/* 4. MAIN CONTENT AREA */}
-          <div className="lg:col-span-8 space-y-10 animate-in slide-in-from-right-4 duration-700">
+          <div className="col-span-8 space-y-10 animate-in slide-in-from-right-4 duration-700">
             {activeTab === 'checklist' && (
               <form onSubmit={async (e) => {
                 e.preventDefault(); if(!newItem) return;
@@ -245,7 +259,6 @@ export default function TripPage() {
                 </div>
               </form>
             )}
-
             {activeTab === 'itinerary' && (
               <form onSubmit={async (e) => {
                 e.preventDefault(); if(!eventTitle || !eventDate) return;
@@ -259,10 +272,7 @@ export default function TripPage() {
                 </div>
               </form>
             )}
-
             {activeTab === 'expenses' && <ExpenseModule expenses={expenses} members={tripMembers} theme={t} onAdd={(exp: any) => handleUpdate('addExpense', exp)} />}
-
-            {/* DATA LEDGERS */}
             <div className="mt-6">
               {activeTab === 'checklist' && <ChecklistModule items={items} categories={dbCategories} members={tripMembers} theme={t} onUpdate={handleUpdate} />}
               {activeTab === 'itinerary' && <ItineraryModule events={events} theme={t} onUpdate={handleUpdate} />}

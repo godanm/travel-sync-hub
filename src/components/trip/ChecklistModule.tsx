@@ -2,6 +2,20 @@
 import { CheckCircle2, Circle, Trash2, ChevronDown, X } from 'lucide-react';
 
 export default function ChecklistModule({ items, categories, members, theme, onUpdate }: any) {
+  // UNIQUE COLOR PALETTE: 12 high-contrast professional colors
+  const palette = [
+    'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 
+    'bg-amber-500', 'bg-emerald-500', 'bg-fuchsia-500', 
+    'bg-cyan-500', 'bg-orange-500', 'bg-violet-500', 
+    'bg-blue-500', 'bg-pink-500', 'bg-lime-500'
+  ];
+
+  // Guaranteed uniqueness by mapping handle to its index in the group
+  const getMemberColor = (handle: string) => {
+    const index = members.findIndex((m: any) => m.user_email.split('@')[0] === handle);
+    return palette[index % palette.length] || 'bg-slate-500';
+  };
+
   return (
     <div className="space-y-12 animate-in fade-in duration-700">
       {categories.map((cat: any) => {
@@ -30,12 +44,14 @@ export default function ChecklistModule({ items, categories, members, theme, onU
                     </div>
 
                     <div className="flex items-center gap-3">
+                      {/* ASSIGNED HANDLES: Unique Colors + Hover to Remove */}
                       <div className="flex -space-x-2">
                         {assignedHandles.map((handle: string) => (
                           <button 
                             key={handle} 
+                            title={handle}
                             onClick={() => onUpdate('assignItem', { item, handle })}
-                            className={`w-8 h-8 rounded-full border-2 border-white ${theme.accent} flex items-center justify-center text-[8px] font-black text-white uppercase transition-all hover:bg-red-500 hover:scale-110 relative group/badge`}
+                            className={`w-8 h-8 rounded-full border-2 border-white ${getMemberColor(handle)} flex items-center justify-center text-[8px] font-black text-white uppercase transition-all hover:bg-red-500 hover:scale-110 relative group/badge shadow-sm`}
                           >
                             <span className="group-hover/badge:hidden">{handle.substring(0, 2)}</span>
                             <X size={12} className="hidden group-hover/badge:block" />
@@ -51,14 +67,14 @@ export default function ChecklistModule({ items, categories, members, theme, onU
                             onChange={(e) => e.target.value && onUpdate('assignItem', { item, handle: e.target.value })}
                           >
                             <option value="" disabled>Assign...</option>
-                            {availableMembers.map((m: any) => (
-                              <option key={m.id} value={m.user_email.split('@')[0]}>{m.user_email.split('@')[0]}</option>
-                            ))}
+                            {availableMembers.map((m: any) => {
+                              const handle = m.user_email.split('@')[0];
+                              return <option key={m.id} value={handle}>{handle}</option>;
+                            })}
                           </select>
                           <ChevronDown size={10} className="absolute right-3 top-3 pointer-events-none opacity-30" />
                         </div>
                       )}
-                      
                       <button onClick={() => onUpdate('deleteItem', item.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-200 hover:text-red-500 transition-all"><Trash2 size={16} /></button>
                     </div>
                   </div>
