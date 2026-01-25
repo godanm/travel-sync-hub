@@ -1,6 +1,6 @@
 'use client';
 
-// GLOBAL TYPE DEFINITION: Resolves Vercel build-blocking errors
+// GLOBAL TYPE DEFINITION: Resolves Vercel build errors for AdSense
 declare global { interface Window { adsbygoogle: any[]; } }
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -37,14 +37,12 @@ export default function TripPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   
-  // Theme Persistence
+  // 1. THEME PERSISTENCE
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('gathergo_theme') as keyof typeof themes;
-    if (savedTheme && themes[savedTheme]) {
-      setCurrentTheme(savedTheme);
-    }
+    if (savedTheme && themes[savedTheme]) setCurrentTheme(savedTheme);
   }, []);
 
   const handleThemeChange = (newTheme: keyof typeof themes) => {
@@ -52,12 +50,13 @@ export default function TripPage() {
     localStorage.setItem('gathergo_theme', newTheme);
   };
 
+  // 2. UI STATE
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'checklist' | 'itinerary' | 'expenses'>('checklist');
   const [isBriefingOpen, setIsBriefingOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Data State
+  // 3. DATA STATE: Initialized to empty to prevent .forEach() crashes
   const [tripData, setTripData] = useState<any>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [items, setItems] = useState<any[]>([]);
@@ -67,6 +66,7 @@ export default function TripPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
 
+  // 4. FORM STATE
   const [newItem, setNewItem] = useState('');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
@@ -108,7 +108,7 @@ export default function TripPage() {
     loadInitialData();
   }, [slug, user, loadInitialData]);
 
-  // Settlement Calculation
+  // 5. SETTLEMENT ENGINE: Who Pays Whom
   const settlementBalances = useMemo(() => {
     const totals: Record<string, number> = {};
     if (!tripMembers || tripMembers.length === 0) return totals;
@@ -126,7 +126,7 @@ export default function TripPage() {
     return totals;
   }, [expenses, tripMembers]);
 
-  // PDF Engine: Explicit Names in Split Column
+  // 6. PDF EXPORT: Explicit Member Naming
   const downloadExpensePDF = () => {
     const doc = new jsPDF();
     const tripTitle = String(slug).replace(/-/g, ' ').toUpperCase();
@@ -134,18 +134,14 @@ export default function TripPage() {
     
     const tableData = expenses.map(exp => [
       new Date(exp.expense_date || exp.created_at).toLocaleDateString(), 
-      exp.description, 
-      exp.paid_by_name, 
-      exp.split_with && exp.split_with.length > 0 ? exp.split_with.join(', ') : 'Everyone', // Explicit naming
+      exp.description, exp.paid_by_name, 
+      exp.split_with && exp.split_with.length > 0 ? exp.split_with.join(', ') : 'Everyone',
       `$${parseFloat(exp.amount).toFixed(2)}`
     ]);
 
     autoTable(doc, { 
-      startY: 40, 
-      head: [['Date', 'Description', 'Paid By', 'Split With', 'Amount']], 
-      body: tableData, 
-      theme: 'grid',
-      headStyles: { fillColor: [79, 70, 229] }
+      startY: 40, head: [['Date', 'Description', 'Paid By', 'Split With', 'Amount']], 
+      body: tableData, theme: 'grid', headStyles: { fillColor: [79, 70, 229] }
     });
     
     const balances = { ...settlementBalances };
@@ -166,6 +162,7 @@ export default function TripPage() {
     doc.save(`${slug}-full-report.pdf`);
   };
 
+  // 7. MASTER HANDLER
   const handleUpdate = async (type: string, payload: any) => {
     if (type === 'assignItem') {
       const { item, handle } = payload;
@@ -200,12 +197,11 @@ export default function TripPage() {
 
   return (
     <main className={`min-h-screen ${t.bg} ${t.text} transition-colors duration-500`}>
-      {/* Utility Header */}
+      {/* UTILITY HEADER: Breadcrumb, Themes, & Profile */}
       <div className={`${t.bg} border-b ${t.border} px-4 md:px-12 py-3 flex items-center justify-between`}>
         <Link href="/" className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:${t.accentText} transition-colors`}>
           <ArrowLeft size={12} /> Dashboard
         </Link>
-        
         <div className="flex items-center gap-6">
           <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
             <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`}><Sun size={14}/></button>
@@ -223,7 +219,7 @@ export default function TripPage() {
         </div>
       </div>
 
-      {/* Centered Navigation */}
+      {/* STICKY NAV: Centered improperly spacer */}
       <nav className={`sticky top-0 z-50 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
         <div className="max-w-[1440px] mx-auto grid grid-cols-12 items-end">
           <div className="col-span-4" /> 
@@ -250,7 +246,7 @@ export default function TripPage() {
         <ActionBriefing isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} items={items} user={user} theme={t} />
         <div className="grid grid-cols-12 gap-10">
           
-          {/* Sidebar Left */}
+          {/* SIDEBAR: LEFT */}
           <div className="col-span-4 space-y-8 animate-in slide-in-from-left-4 duration-700">
             {isOwner && (
                <div className={`${t.card} p-6 rounded-[32px] border ${t.border} flex items-center justify-between shadow-sm`}>
@@ -260,9 +256,10 @@ export default function TripPage() {
             )}
             <MemberDirectory members={tripMembers} theme={t} isOwner={isOwner} tripSlug={slug as string} onMemberRemoved={loadInitialData} logAction={() => {}} />
             <ActivityFeed activities={activities} theme={t} />
+            <TravelAd theme={t} />
           </div>
 
-          {/* Main Action Pane */}
+          {/* MAIN CONTENT AREA */}
           <div className="col-span-8 space-y-10 animate-in slide-in-from-right-4 duration-700">
             {activeTab === 'checklist' && (
               <form onSubmit={async (e) => {
