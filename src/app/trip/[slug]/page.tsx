@@ -1,6 +1,6 @@
 'use client';
 
-// GLOBAL TYPE DEFINITION
+// GLOBAL TYPE DEFINITION: Resolves Vercel build-blocking errors
 declare global { interface Window { adsbygoogle: any[]; } }
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -37,7 +37,7 @@ export default function TripPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   
-  // 1. THEME PERSISTENCE LOGIC
+  // Theme Persistence
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
 
   useEffect(() => {
@@ -108,6 +108,7 @@ export default function TripPage() {
     loadInitialData();
   }, [slug, user, loadInitialData]);
 
+  // Settlement Calculation
   const settlementBalances = useMemo(() => {
     const totals: Record<string, number> = {};
     if (!tripMembers || tripMembers.length === 0) return totals;
@@ -117,6 +118,7 @@ export default function TripPage() {
       const amountVal = parseFloat(exp.amount);
       const targets = (exp.split_with && exp.split_with.length > 0) 
         ? exp.split_with : tripMembers.map((m: any) => m.user_email.split('@')[0]);
+      
       const share = amountVal / (targets.length || 1);
       if (totals[payer] !== undefined) totals[payer] += amountVal;
       targets.forEach((handle: string) => { if (totals[handle] !== undefined) totals[handle] -= share; });
@@ -124,14 +126,28 @@ export default function TripPage() {
     return totals;
   }, [expenses, tripMembers]);
 
+  // PDF Engine: Explicit Names in Split Column
   const downloadExpensePDF = () => {
     const doc = new jsPDF();
     const tripTitle = String(slug).replace(/-/g, ' ').toUpperCase();
-    doc.setFontSize(22); doc.text(`FINANCIAL REPORT: ${tripTitle}`, 14, 22);
+    doc.setFontSize(22); doc.text(`FINANCIAL LEDGER: ${tripTitle}`, 14, 22);
+    
     const tableData = expenses.map(exp => [
-      new Date(exp.expense_date || exp.created_at).toLocaleDateString(), exp.description, exp.paid_by_name, `$${parseFloat(exp.amount).toFixed(2)}`
+      new Date(exp.expense_date || exp.created_at).toLocaleDateString(), 
+      exp.description, 
+      exp.paid_by_name, 
+      exp.split_with && exp.split_with.length > 0 ? exp.split_with.join(', ') : 'Everyone', // Explicit naming
+      `$${parseFloat(exp.amount).toFixed(2)}`
     ]);
-    autoTable(doc, { startY: 40, head: [['Date', 'Description', 'Paid By', 'Amount']], body: tableData, theme: 'grid' });
+
+    autoTable(doc, { 
+      startY: 40, 
+      head: [['Date', 'Description', 'Paid By', 'Split With', 'Amount']], 
+      body: tableData, 
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] }
+    });
+    
     const balances = { ...settlementBalances };
     const debtors = Object.entries(balances).filter(([_, b]) => b < 0).sort((a,b) => a[1] - b[1]);
     const creditors = Object.entries(balances).filter(([_, b]) => b > 0).sort((a,b) => b[1] - a[1]);
@@ -145,8 +161,9 @@ export default function TripPage() {
       if (creditors[j][1] < 0.01) j++;
     }
     const finalY = (doc as any).lastAutoTable.finalY + 15;
-    autoTable(doc, { startY: finalY + 5, head: [['Sender', 'Receiver', 'Amount']], body: instructions, theme: 'striped' });
-    doc.save(`${slug}-settlement.pdf`);
+    doc.setFontSize(14); doc.text("Settlement Instructions", 14, finalY);
+    autoTable(doc, { startY: finalY + 5, head: [['From', 'To', 'Amount']], body: instructions, theme: 'striped', headStyles: { fillColor: [16, 185, 129] } });
+    doc.save(`${slug}-full-report.pdf`);
   };
 
   const handleUpdate = async (type: string, payload: any) => {
@@ -183,21 +200,19 @@ export default function TripPage() {
 
   return (
     <main className={`min-h-screen ${t.bg} ${t.text} transition-colors duration-500`}>
-      {/* UTILITY HEADER: Persisting identity */}
+      {/* Utility Header */}
       <div className={`${t.bg} border-b ${t.border} px-4 md:px-12 py-3 flex items-center justify-between`}>
         <Link href="/" className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:${t.accentText} transition-colors`}>
           <ArrowLeft size={12} /> Dashboard
         </Link>
         
         <div className="flex items-center gap-6">
-          {/* THEME SELECTION DROPDOWN */}
           <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
-            <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`} title="Classic Mode"><Sun size={14}/></button>
-            <button onClick={() => handleThemeChange('midnight')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'midnight' ? t.accent + ' text-white' : t.subtext}`} title="Midnight Mode"><Moon size={14}/></button>
-            <button onClick={() => handleThemeChange('ocean')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'ocean' ? t.accent + ' text-white' : t.subtext}`} title="Ocean Mode"><Waves size={14}/></button>
-            <button onClick={() => handleThemeChange('forest')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'forest' ? t.accent + ' text-white' : t.subtext}`} title="Forest Mode"><TreePine size={14}/></button>
+            <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`}><Sun size={14}/></button>
+            <button onClick={() => handleThemeChange('midnight')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'midnight' ? t.accent + ' text-white' : t.subtext}`}><Moon size={14}/></button>
+            <button onClick={() => handleThemeChange('ocean')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'ocean' ? t.accent + ' text-white' : t.subtext}`}><Waves size={14}/></button>
+            <button onClick={() => handleThemeChange('forest')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'forest' ? t.accent + ' text-white' : t.subtext}`}><TreePine size={14}/></button>
           </div>
-
           <div className="flex items-center gap-2">
             <UserIcon size={12} className={t.accentText} />
             <p className="text-[9px] font-black uppercase">{user?.email?.split('@')[0]}</p>
@@ -208,7 +223,7 @@ export default function TripPage() {
         </div>
       </div>
 
-      {/* STICKY NAV: Centered properly over content */}
+      {/* Centered Navigation */}
       <nav className={`sticky top-0 z-50 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
         <div className="max-w-[1440px] mx-auto grid grid-cols-12 items-end">
           <div className="col-span-4" /> 
@@ -233,8 +248,9 @@ export default function TripPage() {
 
       <div className="max-w-[1440px] mx-auto p-4 md:p-12">
         <ActionBriefing isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} items={items} user={user} theme={t} />
-
         <div className="grid grid-cols-12 gap-10">
+          
+          {/* Sidebar Left */}
           <div className="col-span-4 space-y-8 animate-in slide-in-from-left-4 duration-700">
             {isOwner && (
                <div className={`${t.card} p-6 rounded-[32px] border ${t.border} flex items-center justify-between shadow-sm`}>
@@ -246,13 +262,14 @@ export default function TripPage() {
             <ActivityFeed activities={activities} theme={t} />
           </div>
 
+          {/* Main Action Pane */}
           <div className="col-span-8 space-y-10 animate-in slide-in-from-right-4 duration-700">
             {activeTab === 'checklist' && (
               <form onSubmit={async (e) => {
                 e.preventDefault(); if(!newItem) return;
                 await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: 'General' }]);
                 loadInitialData(); setNewItem('');
-              }} className={`${t.card} p-8 rounded-[40px] border ${t.border} shadow-sm animate-in fade-in`}>
+              }} className={`${t.card} p-8 rounded-[40px] border ${t.border} shadow-sm`}>
                 <div className="flex gap-4">
                   <input className={`flex-grow p-5 ${t.bg} rounded-3xl focus:outline-none font-bold text-lg`} placeholder="Add item..." value={newItem} onChange={(e)=>setNewItem(e.target.value)} />
                   <button className={`${t.accent} text-white px-10 rounded-3xl font-black uppercase text-[12px] shadow-lg`}>ADD</button>
@@ -264,7 +281,7 @@ export default function TripPage() {
                 e.preventDefault(); if(!eventTitle || !eventDate) return;
                 await supabase.from('itinerary_events').insert([{ title: eventTitle, event_date: eventDate, trip_slug: slug }]);
                 loadInitialData(); setEventTitle('');
-              }} className={`${t.card} p-8 rounded-[40px] border ${t.border} shadow-sm space-y-4 animate-in fade-in`}>
+              }} className={`${t.card} p-8 rounded-[40px] border ${t.border} shadow-sm space-y-4`}>
                 <input className={`w-full p-5 ${t.bg} rounded-3xl focus:outline-none font-bold text-lg`} placeholder="Event..." value={eventTitle} onChange={(e)=>setEventTitle(e.target.value)} />
                 <div className="flex gap-4">
                   <input type="date" className={`flex-grow p-5 ${t.bg} rounded-3xl focus:outline-none font-bold`} value={eventDate} onChange={(e)=>setEventDate(e.target.value)} />
@@ -273,6 +290,7 @@ export default function TripPage() {
               </form>
             )}
             {activeTab === 'expenses' && <ExpenseModule expenses={expenses} members={tripMembers} theme={t} onAdd={(exp: any) => handleUpdate('addExpense', exp)} />}
+            
             <div className="mt-6">
               {activeTab === 'checklist' && <ChecklistModule items={items} categories={dbCategories} members={tripMembers} theme={t} onUpdate={handleUpdate} />}
               {activeTab === 'itinerary' && <ItineraryModule events={events} theme={t} onUpdate={handleUpdate} />}
