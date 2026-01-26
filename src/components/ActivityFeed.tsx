@@ -39,9 +39,6 @@ export default function ActivityFeed({ activities, theme }: { activities: any[],
                 <p className="text-xs leading-relaxed">
                   <span className="font-black">{log.user_name || 'Someone'}</span>{' '}
                   <span className={theme.subtext}>{log.action_type}</span>{' '}
-                  <span className="font-bold underline decoration-indigo-200 decoration-2">
-                    {log.item_name}
-                  </span>
                 </p>
                 <div className={`flex items-center gap-1 text-[9px] font-bold ${theme.subtext} mt-1 uppercase tracking-tighter`}>
                   <Clock size={10} /> {formatTimestamp(log.created_at)}

@@ -1,0 +1,272 @@
+[
+    {
+      "table_name": "trip_expenses",
+      "column_name": "expense_date",
+      "data_type": "date"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "is_used",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "is_packed",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "trips",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "trips",
+      "column_name": "share_token",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "event_date",
+      "data_type": "date"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "event_time",
+      "data_type": "time without time zone"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "joined_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "categories",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "categories",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "categories",
+      "column_name": "sort_order",
+      "data_type": "smallint"
+    },
+    {
+      "table_name": "activity_log",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "activity_log",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "amount",
+      "data_type": "numeric"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "title",
+      "data_type": "text"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "activity_log",
+      "column_name": "item_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "paid_by_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "user_email",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "family_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "split_with",
+      "data_type": "ARRAY"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "status",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "trip_id",
+      "data_type": "text"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "trip_slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "token",
+      "data_type": "text"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "email",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_members",
+      "column_name": "trip_slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "trip_slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "invitations",
+      "column_name": "invited_family_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "categories",
+      "column_name": "name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "item_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "categories",
+      "column_name": "icon",
+      "data_type": "text"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "claimed_by_name",
+      "data_type": "ARRAY"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "trip_slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "description",
+      "data_type": "text"
+    },
+    {
+      "table_name": "checklist_items",
+      "column_name": "category_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trips",
+      "column_name": "slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trips",
+      "column_name": "name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "currency",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trips",
+      "column_name": "access_code",
+      "data_type": "text"
+    },
+    {
+      "table_name": "trip_expenses",
+      "column_name": "paid_by_email",
+      "data_type": "text"
+    },
+    {
+      "table_name": "activity_log",
+      "column_name": "trip_slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "itinerary_events",
+      "column_name": "trip_slug",
+      "data_type": "text"
+    },
+    {
+      "table_name": "activity_log",
+      "column_name": "user_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "activity_log",
+      "column_name": "action_type",
+      "data_type": "text"
+    }
+  ]
