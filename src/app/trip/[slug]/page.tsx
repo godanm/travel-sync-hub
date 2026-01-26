@@ -68,6 +68,7 @@ export default function TripPage() {
 
   // 4. FORM STATE
   const [newItem, setNewItem] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
 
@@ -95,6 +96,7 @@ export default function TripPage() {
       setTripMembers(allMembers.data || []);
       setActivities(logs.data || []);
       setDbCategories(cats.data || []);
+      if (cats.data?.length && !selectedCategory) setSelectedCategory(cats.data[0].name);
     }
     setLoading(false);
   }, [slug, user]);
@@ -264,12 +266,17 @@ export default function TripPage() {
             {activeTab === 'checklist' && (
               <form onSubmit={async (e) => {
                 e.preventDefault(); if(!newItem) return;
-                await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: 'General' }]);
-                loadInitialData(); setNewItem('');
-              }} className={`${t.card} p-8 rounded-[40px] border ${t.border} shadow-sm`}>
-                <div className="flex gap-4">
-                  <input className={`flex-grow p-5 ${t.bg} rounded-3xl focus:outline-none font-bold text-lg`} placeholder="Add item..." value={newItem} onChange={(e)=>setNewItem(e.target.value)} />
-                  <button className={`${t.accent} text-white px-10 rounded-3xl font-black uppercase text-[12px] shadow-lg`}>ADD</button>
+                const { data } = await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: selectedCategory }]).select().single();
+                if(data) { logAction('added', newItem); setNewItem(''); }
+              }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 space-y-4 shadow-sm`}>
+                <div className="flex gap-2">
+                  <input className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Add expedition item..." value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                  <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black uppercase text-[10px]`}>ADD</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {dbCategories.map(cat => (
+                    <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.name)} className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all ${selectedCategory === cat.name ? `${t.accent} text-white shadow-md` : `${t.bg} ${t.subtext}`}`}>{cat.name}</button>
+                  ))}
                 </div>
               </form>
             )}
