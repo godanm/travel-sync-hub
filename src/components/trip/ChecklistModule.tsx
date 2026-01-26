@@ -1,41 +1,59 @@
 'use client';
-import { useState } from 'react';
-import { 
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, 
-  useSensor, useSensors, DragOverlay, defaultDropAnimationSideEffects 
-} from '@dnd-kit/core';
-import { 
-  arrayMove, SortableContext, sortableKeyboardCoordinates, 
-  verticalListSortingStrategy, useSortable 
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, Trash2, ChevronDown, X, GripVertical } from 'lucide-react';
 
-// --- Sortable Item Wrapper ---
-function SortableItem({ item, getMemberColor, onUpdate, members, theme }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+// --- Draggable Item Component ---
+function DraggableItem({ item, getMemberColor, onUpdate, members, theme, onDragStart, onDragOver, onDrop, isDraggedOver }: any) {
+  const [isDragging, setIsDragging] = useState(false);
   
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
   const assignedHandles = item.claimed_by_name || [];
   const availableMembers = members.filter((m: any) => 
     !assignedHandles.includes(m.user_email.split('@')[0])
   );
 
+  const handleDragStart = (e: React.DragEvent) => {
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', item.id);
+    onDragStart(item.id);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    
+    // Unlock scroll on drag end (in case drop wasn't triggered)
+    if ((window as any).__scrollLock) {
+      window.removeEventListener('scroll', (window as any).__scrollLock);
+      delete (window as any).__scrollLock;
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    onDragOver(item.id);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDrop(item.id);
+  };
+
   return (
     <div 
-      ref={setNodeRef} style={style}
-      className={`${theme.card} p-5 rounded-[28px] border ${theme.border} flex items-center justify-between group hover:shadow-md transition-all mb-3`}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className={`${theme.card} p-5 rounded-[28px] border ${isDraggedOver ? 'border-blue-400 border-2' : theme.border} flex items-center justify-between group hover:shadow-md transition-all mb-3 ${isDragging ? 'opacity-50' : 'opacity-100'}`}
     >
       <div className="flex items-center gap-4">
         {/* Drag Handle */}
-        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
+        <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
           <GripVertical size={18} />
-        </button>
+        </div>
         
         <button onClick={() => onUpdate('togglePacked', item)} className="transition-transform active:scale-90">
           {item.is_packed ? <CheckCircle2 size={24} className={theme.accentText} /> : <Circle size={24} className="text-slate-200" />}
@@ -78,12 +96,45 @@ function SortableItem({ item, getMemberColor, onUpdate, members, theme }: any) {
   );
 }
 
+// --- Category Drop Zone ---
+function CategoryDropZone({ category, theme, onDrop, onDragOver, isOver }: any) {
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    onDragOver(category.name);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDrop(category.name);
+  };
+
+  return (
+    <div
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className={`${theme.card} p-4 rounded-[20px] border-2 ${isOver ? 'border-blue-500 bg-blue-50' : 'border-dashed ' + theme.border} transition-all min-h-[60px] flex items-center justify-center`}
+    >
+      <p className={`text-[10px] font-black uppercase tracking-wider ${isOver ? 'text-blue-600' : theme.subtext}`}>
+        Drop here
+      </p>
+    </div>
+  );
+}
+
 // --- Main Module ---
 export default function ChecklistModule({ items, categories, members, theme, onUpdate }: any) {
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [overCategory, setOverCategory] = useState<string | null>(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const [localItems, setLocalItems] = useState(items);
+
+  // Update local items when props change
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
 
   const palette = ['bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-amber-500', 'bg-emerald-500', 'bg-fuchsia-500'];
 
@@ -92,43 +143,142 @@ export default function ChecklistModule({ items, categories, members, theme, onU
     return palette[index % palette.length] || 'bg-slate-500';
   };
 
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-    if (active.id !== over.id) {
-      onUpdate('reorderItems', { activeId: active.id, overId: over.id });
+  const handleDragStart = (id: string) => {
+    setDraggedId(id);
+    setScrollPosition(window.pageYOffset);
+    
+    // Lock scroll position
+    const lockScroll = () => {
+      window.scrollTo(0, scrollPosition);
+    };
+    window.addEventListener('scroll', lockScroll);
+    
+    // Store cleanup function
+    (window as any).__scrollLock = lockScroll;
+  };
+
+  const handleDragOver = (id: string) => {
+    if (draggedId && draggedId !== id) {
+      setOverId(id);
+      setOverCategory(null);
     }
   };
 
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <div className="space-y-12 animate-in fade-in duration-700">
-        {categories.map((cat: any) => {
-          const catItems = items.filter((i: any) => i.category_name === cat.name);
-          if (catItems.length === 0) return null;
+  const handleCategoryDragOver = (categoryName: string) => {
+    setOverCategory(categoryName);
+    setOverId(null);
+  };
 
-          return (
-            <div key={cat.id} className="space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] px-2 opacity-50 flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${theme.accent}`} /> {cat.name}
-              </h3>
-              <SortableContext items={catItems.map((i: any) => i.id)} strategy={verticalListSortingStrategy}>
-                <div className="grid grid-cols-1">
-                  {catItems.map((item: any) => (
-                    <SortableItem 
-                      key={item.id} 
-                      item={item} 
-                      members={members} 
-                      getMemberColor={getMemberColor} 
-                      theme={theme} 
-                      onUpdate={onUpdate} 
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </div>
-          );
-        })}
-      </div>
-    </DndContext>
+  const handleDropOnItem = async (targetId: string) => {
+    // Unlock scroll FIRST
+    if ((window as any).__scrollLock) {
+      window.removeEventListener('scroll', (window as any).__scrollLock);
+      delete (window as any).__scrollLock;
+    }
+    
+    if (draggedId && draggedId !== targetId) {
+      const draggedItem = localItems.find((i: any) => i.id === draggedId);
+      const targetItem = localItems.find((i: any) => i.id === targetId);
+      
+      if (draggedItem && targetItem && draggedItem.category_name !== targetItem.category_name) {
+        // Update local state immediately for instant feedback
+        const updatedItems = localItems.map((item: any) => 
+          item.id === draggedId 
+            ? { ...item, category_name: targetItem.category_name }
+            : item
+        );
+        setLocalItems(updatedItems);
+        
+        // Update database
+        await onUpdate('reorderItems', { activeId: draggedId, overId: targetId });
+      }
+    }
+    
+    setDraggedId(null);
+    setOverId(null);
+  };
+
+  const handleDropOnCategory = async (categoryName: string) => {
+    // Unlock scroll FIRST
+    if ((window as any).__scrollLock) {
+      window.removeEventListener('scroll', (window as any).__scrollLock);
+      delete (window as any).__scrollLock;
+    }
+    
+    if (draggedId) {
+      const draggedItem = localItems.find((i: any) => i.id === draggedId);
+      
+      if (draggedItem && draggedItem.category_name !== categoryName) {
+        // Update local state immediately
+        const updatedItems = localItems.map((item: any) => 
+          item.id === draggedId 
+            ? { ...item, category_name: categoryName }
+            : item
+        );
+        setLocalItems(updatedItems);
+        
+        // Update database
+        await onUpdate('reorderItems', { activeId: draggedId, categoryName });
+      }
+    }
+    
+    setDraggedId(null);
+    setOverCategory(null);
+  };
+
+  return (
+    <div className="space-y-12 animate-in fade-in duration-700">
+      {categories.map((cat: any) => {
+        const catItems = localItems.filter((i: any) => i.category_name === cat.name);
+
+        return (
+          <div key={cat.id} className="space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] px-2 opacity-50 flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full ${theme.accent}`} /> {cat.name}
+            </h3>
+            
+            {catItems.length > 0 ? (
+              <div className="grid grid-cols-1">
+                {catItems.map((item: any) => (
+                  <DraggableItem 
+                    key={item.id} 
+                    item={item} 
+                    members={members} 
+                    getMemberColor={getMemberColor} 
+                    theme={theme} 
+                    onUpdate={onUpdate}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDropOnItem}
+                    isDraggedOver={overId === item.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <CategoryDropZone 
+                category={cat}
+                theme={theme}
+                onDrop={handleDropOnCategory}
+                onDragOver={handleCategoryDragOver}
+                isOver={overCategory === cat.name}
+              />
+            )}
+            
+            {/* Always show drop zone when dragging */}
+            {draggedId && catItems.length > 0 && (
+              <div>
+                <CategoryDropZone 
+                  category={cat}
+                  theme={theme}
+                  onDrop={handleDropOnCategory}
+                  onDragOver={handleCategoryDragOver}
+                  isOver={overCategory === cat.name}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

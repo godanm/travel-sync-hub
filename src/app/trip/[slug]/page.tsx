@@ -166,6 +166,8 @@ export default function TripPage() {
 
   // 7. MASTER HANDLER
   const handleUpdate = async (type: string, payload: any) => {
+    const currentScrollY = window.scrollY; // Save scroll position
+    
     if (type === 'assignItem') {
       const { item, handle } = payload;
       const current = item.claimed_by_name || [];
@@ -186,10 +188,35 @@ export default function TripPage() {
       await supabase.from('trip_expenses').delete().eq('id', payload);
     } else if (type === 'deleteEvent') {
       await supabase.from('itinerary_events').delete().eq('id', payload);
+    } else if (type === 'reorderItems') {
+      const currentScrollY = window.scrollY;
+      const { activeId, overId, categoryName } = payload;
+      
+      if (categoryName) {
+        // Dropped on category zone
+        await supabase.from('checklist_items').update({ 
+          category_name: categoryName 
+        }).eq('id', activeId);
+      } else if (overId) {
+        // Dropped on item
+        const draggedItem = items.find(i => i.id === activeId);
+        const targetItem = items.find(i => i.id === overId);
+        
+        if (draggedItem && targetItem) {
+          await supabase.from('checklist_items').update({ 
+            category_name: targetItem.category_name 
+          }).eq('id', activeId);
+        }
+      }
     }
-    loadInitialData();
+    
+    await loadInitialData();
+    
+    // Restore scroll position after data loads
+    setTimeout(() => {
+      window.scrollTo(0, currentScrollY);
+    }, 0);
   };
-
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
     if (!authLoading && user && slug) loadInitialData();
