@@ -74,6 +74,235 @@ export default function TripPage() {
 
   const t = themes[currentTheme] || themes.classic;
 
+  // Add this function to your TripPage component in page.tsx
+
+const downloadTripSummary = () => {
+  const doc = new jsPDF();
+  const tripTitle = String(slug).replace(/-/g, ' ').toUpperCase();
+  let yPos = 20;
+
+  // HEADER
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`TRIP SUMMARY: ${tripTitle}`, 14, yPos);
+  yPos += 5;
+  doc.setLineWidth(0.5);
+  doc.line(14, yPos, 196, yPos);
+  yPos += 15;
+
+  // ========== SECTION 1: CHECKLIST ==========
+  doc.setFontSize(16);
+  doc.setTextColor(79, 70, 229);
+  doc.text('CHECKLIST', 14, yPos);
+  yPos += 10;
+
+  const checklistByCategory: Record<string, any[]> = {};
+  dbCategories.forEach(cat => {
+    checklistByCategory[cat.name] = items.filter(i => i.category_name === cat.name);
+  });
+
+  Object.entries(checklistByCategory).forEach(([categoryName, categoryItems]) => {
+    if (categoryItems.length === 0) return;
+
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(categoryName.toUpperCase(), 14, yPos);
+    yPos += 7;
+
+    const checklistData = categoryItems.map(item => {
+      const status = item.is_packed ? '✓' : '○';
+      const assignedTo = item.claimed_by_name && item.claimed_by_name.length > 0 
+        ? item.claimed_by_name.join(', ') 
+        : '-';
+      return [status, item.item_name, assignedTo];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['', 'Item', 'Assigned To']],
+      body: checklistData,
+      theme: 'plain',
+      headStyles: { 
+        fillColor: [240, 240, 240], 
+        textColor: [50, 50, 50],
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 100 },
+        2: { cellWidth: 70 }
+      },
+      margin: { left: 14 }
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 8;
+  });
+
+  // Check if we need a new page
+  if (yPos > 250) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  // ========== SECTION 2: ITINERARY ==========
+  yPos += 5;
+  doc.setFontSize(16);
+  doc.setTextColor(79, 70, 229);
+  doc.text('ITINERARY', 14, yPos);
+  yPos += 10;
+
+  if (events.length > 0) {
+    const itineraryData = events.map(event => [
+      new Date(event.event_date).toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      }),
+      event.title
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Date', 'Event']],
+      body: itineraryData,
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [79, 70, 229],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 50, fontStyle: 'bold' },
+        1: { cellWidth: 130 }
+      },
+      margin: { left: 14 }
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+  } else {
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.text('No events scheduled', 14, yPos);
+    yPos += 15;
+  }
+
+  // Check if we need a new page
+  if (yPos > 230) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  // ========== SECTION 3: EXPENSES ==========
+  doc.setFontSize(16);
+  doc.setTextColor(79, 70, 229);
+  doc.text('EXPENSES', 14, yPos);
+  yPos += 10;
+
+  if (expenses.length > 0) {
+    const expenseData = expenses.map(exp => [
+      new Date(exp.expense_date || exp.created_at).toLocaleDateString(),
+      exp.description,
+      exp.paid_by_name,
+      exp.split_with && exp.split_with.length > 0 ? exp.split_with.join(', ') : 'Everyone',
+      `$${parseFloat(exp.amount).toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Date', 'Description', 'Paid By', 'Split With', 'Amount']],
+      body: expenseData,
+      theme: 'grid',
+      headStyles: { 
+        fillColor: [79, 70, 229],
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 50 },
+        4: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
+      },
+      margin: { left: 14 }
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    // Calculate totals
+    const totalExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total Expenses: $${totalExpenses.toFixed(2)}`, 14, yPos);
+    yPos += 15;
+
+    // Settlement Instructions
+    const balances = { ...settlementBalances };
+    const debtors = Object.entries(balances).filter(([_, b]) => b < 0).sort((a,b) => a[1] - b[1]);
+    const creditors = Object.entries(balances).filter(([_, b]) => b > 0).sort((a,b) => b[1] - a[1]);
+    const instructions: string[][] = [];
+    let i = 0, j = 0;
+    while(i < debtors.length && j < creditors.length) {
+      const amount = Math.min(Math.abs(debtors[i][1]), creditors[j][1]);
+      instructions.push([debtors[i][0], '→', creditors[j][0], `$${amount.toFixed(2)}`]);
+      debtors[i][1] += amount; creditors[j][1] -= amount;
+      if (Math.abs(debtors[i][1]) < 0.01) i++;
+      if (creditors[j][1] < 0.01) j++;
+    }
+
+    if (instructions.length > 0) {
+      doc.setFontSize(14);
+      doc.setTextColor(16, 185, 129);
+      doc.text('Settlement Instructions', 14, yPos);
+      yPos += 7;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['From', '', 'To', 'Amount']],
+        body: instructions,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [16, 185, 129],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        bodyStyles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 15, halign: 'center' },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 35, halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] }
+        },
+        margin: { left: 14 }
+      });
+    }
+  } else {
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.text('No expenses recorded', 14, yPos);
+  }
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.text(
+      `Generated on ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`,
+      105,
+      285,
+      { align: 'center' }
+    );
+  }
+
+  doc.save(`${slug}-complete-summary.pdf`);
+};
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     const [itemRes, eventRes, expRes, memberRes, allMembers, logs, cats, tripInfo] = await Promise.all([
@@ -250,27 +479,34 @@ export default function TripPage() {
 
       {/* STICKY NAV: Centered improperly spacer */}
       <nav className={`sticky top-0 z-50 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
-        <div className="max-w-[1440px] mx-auto grid grid-cols-12 items-end">
-          <div className="col-span-4" /> 
-          <div className="col-span-8 flex justify-between items-end">
-            <div className="flex gap-10">
-              {(['checklist', 'itinerary', 'expenses'] as const).map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 px-2 font-black text-[11px] uppercase tracking-[0.15em] relative transition-all ${activeTab === tab ? `${t.accentText}` : 'text-slate-400 hover:text-slate-600'}`}>
-                  {tab}
-                  {activeTab === tab && <div className={`absolute bottom-0 left-0 right-0 h-1 ${t.accent} rounded-t-full animate-in slide-in-from-bottom-1`} />}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-4 pb-4">
-              {activeTab === 'expenses' && expenses.length > 0 && (
-                <button onClick={downloadExpensePDF} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-lg"><FileDown size={14}/> PDF</button>
-              )}
-              <button onClick={() => setIsBriefingOpen(true)} className={`${t.accent} text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-xl`}><Target size={14}/> BRIEFING</button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
+  <div className="max-w-[1440px] mx-auto grid grid-cols-12 items-end">
+    <div className="col-span-4" /> 
+    <div className="col-span-8 flex justify-between items-end">
+      <div className="flex gap-10">
+        {(['checklist', 'itinerary', 'expenses'] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 px-2 font-black text-[11px] uppercase tracking-[0.15em] relative transition-all ${activeTab === tab ? `${t.accentText}` : 'text-slate-400 hover:text-slate-600'}`}>
+            {tab}
+            {activeTab === tab && <div className={`absolute bottom-0 left-0 right-0 h-1 ${t.accent} rounded-t-full animate-in slide-in-from-bottom-1`} />}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-4 pb-4">
+        {/* Full Trip Summary Export */}
+        <button 
+          onClick={downloadTripSummary} 
+          className="bg-purple-600 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-lg hover:bg-purple-700 transition-colors"
+        >
+          <FileDown size={14}/> FULL SUMMARY
+        </button>
+        
+        {activeTab === 'expenses' && expenses.length > 0 && (
+          <button onClick={downloadExpensePDF} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-lg"><FileDown size={14}/> EXPENSES PDF</button>
+        )}
+        <button onClick={() => setIsBriefingOpen(true)} className={`${t.accent} text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-xl`}><Target size={14}/> BRIEFING</button>
+      </div>
+    </div>
+  </div>
+</nav>
       <div className="max-w-[1440px] mx-auto p-4 md:p-12">
         <ActionBriefing isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} items={items} user={user} theme={t} />
         <div className="grid grid-cols-12 gap-10">
