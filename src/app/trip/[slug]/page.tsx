@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { 
   Target, Sun, Moon, Waves, TreePine, Loader2, 
   Link as LinkIcon, FileDown, ArrowLeft, LogOut, 
-  User as UserIcon, X, Users // Added X for closing modals and Users for the team button
+  User as UserIcon, X, Users, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
@@ -25,6 +25,7 @@ import ExpenseList from '@/components/trip/ExpenseList';
 import MemberDirectory from '@/components/MemberDirectory'; 
 import ActivityFeed from '@/components/ActivityFeed'; 
 import { useAuth } from '@/components/AuthProvider';
+import ChatModule from '@/components/trip/ChatModule'; //
 
 const themes = {
   classic: { bg: 'bg-slate-50', card: 'bg-white', text: 'text-slate-900', subtext: 'text-slate-400', accent: 'bg-blue-600', accentText: 'text-blue-600', border: 'border-slate-100', banner: 'bg-blue-600', categoryBg: 'bg-blue-100/50' },
@@ -42,6 +43,7 @@ export default function TripPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [showDirectory, setShowDirectory] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   
   // 1. THEME PERSISTENCE
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
@@ -578,7 +580,17 @@ const downloadTripSummary = () => {
           </div>
         </div>
       </div>
-
+{/* CHAT OVERLAY: Ensure this is NOT inside another {activeTab === ...} block */}
+{showChat && (
+  <div className="fixed right-24 top-1/2 -translate-y-1/2 z-[70] w-[350px] animate-in fade-in slide-in-from-right-4 duration-300">
+    <ChatModule 
+      slug={slug} 
+      user={user} 
+      theme={t} 
+      onClose={() => setShowChat(false)} 
+    />
+  </div>
+)}
       {/* 4. MODAL OVERLAYS (Invite, Directory, Activity) */}
       <Overlay isOpen={showInvite} onClose={() => setShowInvite(false)} title="Invite Link" theme={t}>
         <div className="flex flex-col gap-4">
@@ -621,6 +633,13 @@ const downloadTripSummary = () => {
     onClick={() => setShowActivity(true)} 
     iconColor="text-green-700" 
     bgColor="bg-green-200/40" 
+  />
+  <NavButton 
+    icon={<MessageSquare size={18}/>} 
+    label="Chat" 
+    onClick={() => setShowChat(!showChat)} 
+    iconColor="text-orange-500" 
+    bgColor="bg-orange-50/80" 
   />
       </div>
     </main>
