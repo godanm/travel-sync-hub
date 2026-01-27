@@ -1,60 +1,79 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Circle, Trash2, ChevronDown, X, GripVertical } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, ChevronDown, X, MousePointer2 } from 'lucide-react';
 
-// --- Draggable Item Component ---
-function DraggableItem({ item, getMemberColor, onUpdate, members, theme, onDragStart, onDragOver, onDrop, isDraggedOver }: any) {
-  const [isDragging, setIsDragging] = useState(false);
-  
+// --- Context Menu Component ---
+function ContextMenu({ item, categories, x, y, onClose, onMoveToCategory, theme }: any) {
+  useEffect(() => {
+    const handleClick = () => onClose();
+    const handleScroll = () => onClose();
+    
+    document.addEventListener('click', handleClick);
+    document.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('scroll', handleScroll);
+    };
+  }, [onClose]);
+
+  return (
+    <div 
+      className={`fixed ${theme.card} border ${theme.border} rounded-2xl shadow-2xl py-2 z-50 min-w-[200px]`}
+      style={{ left: `${x}px`, top: `${y}px` }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="px-4 py-2 border-b border-slate-200">
+        <p className="text-[9px] font-black uppercase tracking-wider opacity-50">Move to Category</p>
+      </div>
+      <div className="py-1 max-h-[300px] overflow-y-auto">
+        {categories.map((cat: any) => (
+          <button
+            key={cat.id}
+            onClick={() => onMoveToCategory(item.id, cat.name)}
+            disabled={item.category_name === cat.name}
+            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+              item.category_name === cat.name 
+                ? 'opacity-40 cursor-not-allowed' 
+                : `hover:${theme.categoryBg} cursor-pointer`
+            }`}
+          >
+            <span className={item.category_name === cat.name ? 'font-bold' : ''}>
+              {cat.name}
+            </span>
+            {item.category_name === cat.name && (
+              <span className="ml-2 text-xs opacity-50">✓ current</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- Checklist Item Component ---
+function ChecklistItem({ item, getMemberColor, onUpdate, members, theme, onContextMenu, onMoveClick }: any) {
   const assignedHandles = item.claimed_by_name || [];
   const availableMembers = members.filter((m: any) => 
     !assignedHandles.includes(m.user_email.split('@')[0])
   );
 
-  const handleDragStart = (e: React.DragEvent) => {
-    setIsDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', item.id);
-    onDragStart(item.id);
-  };
-
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    
-    // Unlock scroll on drag end (in case drop wasn't triggered)
-    if ((window as any).__scrollLock) {
-      window.removeEventListener('scroll', (window as any).__scrollLock);
-      delete (window as any).__scrollLock;
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    onDragOver(item.id);
+    onContextMenu(item, e.clientX, e.clientY);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDrop(item.id);
+  const handleMoveClick = (e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    onMoveClick(item, rect.right + 10, rect.top);
   };
 
   return (
     <div 
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      className={`${theme.card} p-5 rounded-[28px] border ${isDraggedOver ? 'border-blue-400 border-2' : theme.border} flex items-center justify-between group hover:shadow-md transition-all mb-3 ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+      onContextMenu={handleContextMenu}
+      className={`${theme.card} p-5 rounded-[28px] border ${theme.border} flex items-center justify-between group hover:shadow-md transition-all mb-3`}
     >
       <div className="flex items-center gap-4">
-        {/* Drag Handle */}
-        <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
-          <GripVertical size={18} />
-        </div>
-        
         <button onClick={() => onUpdate('togglePacked', item)} className="transition-transform active:scale-90">
           {item.is_packed ? <CheckCircle2 size={24} className={theme.accentText} /> : <Circle size={24} className="text-slate-200" />}
         </button>
@@ -62,6 +81,15 @@ function DraggableItem({ item, getMemberColor, onUpdate, members, theme, onDragS
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Move Button - Always Visible on Mobile, Hidden on Desktop */}
+        <button 
+          onClick={handleMoveClick}
+          className={`md:opacity-0 md:group-hover:opacity-100 p-2 ${theme.accent} text-white rounded-xl text-[9px] font-black uppercase transition-all hover:scale-105`}
+          title="Move to category"
+        >
+          Move
+        </button>
+
         <div className="flex -space-x-2">
           {assignedHandles.map((handle: string) => (
             <button 
@@ -96,28 +124,12 @@ function DraggableItem({ item, getMemberColor, onUpdate, members, theme, onDragS
   );
 }
 
-// --- Category Drop Zone ---
-function CategoryDropZone({ category, theme, onDrop, onDragOver, isOver }: any) {
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    onDragOver(category.name);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDrop(category.name);
-  };
-
+// --- Empty Category Placeholder ---
+function EmptyCategory({ categoryName, theme }: any) {
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      className={`${theme.card} p-4 rounded-[20px] border-2 ${isOver ? 'border-blue-500 bg-blue-50' : 'border-dashed ' + theme.border} transition-all min-h-[60px] flex items-center justify-center`}
-    >
-      <p className={`text-[10px] font-black uppercase tracking-wider ${isOver ? 'text-blue-600' : theme.subtext}`}>
-        Drop here
+    <div className={`${theme.card} p-6 rounded-[20px] border-2 border-dashed ${theme.border} transition-all min-h-[80px] flex items-center justify-center opacity-50`}>
+      <p className={`text-[10px] font-black uppercase tracking-wider ${theme.subtext}`}>
+        No items yet
       </p>
     </div>
   );
@@ -125,11 +137,8 @@ function CategoryDropZone({ category, theme, onDrop, onDragOver, isOver }: any) 
 
 // --- Main Module ---
 export default function ChecklistModule({ items, categories, members, theme, onUpdate }: any) {
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-  const [overCategory, setOverCategory] = useState<string | null>(null);
-  const [scrollPosition, setScrollPosition] = useState(0);
   const [localItems, setLocalItems] = useState(items);
+  const [contextMenu, setContextMenu] = useState<{ item: any; x: number; y: number } | null>(null);
 
   // Update local items when props change
   useEffect(() => {
@@ -143,142 +152,90 @@ export default function ChecklistModule({ items, categories, members, theme, onU
     return palette[index % palette.length] || 'bg-slate-500';
   };
 
-  const handleDragStart = (id: string) => {
-    setDraggedId(id);
-    setScrollPosition(window.pageYOffset);
-    
-    // Lock scroll position
-    const lockScroll = () => {
-      window.scrollTo(0, scrollPosition);
-    };
-    window.addEventListener('scroll', lockScroll);
-    
-    // Store cleanup function
-    (window as any).__scrollLock = lockScroll;
+  const handleContextMenu = (item: any, x: number, y: number) => {
+    setContextMenu({ item, x, y });
   };
 
-  const handleDragOver = (id: string) => {
-    if (draggedId && draggedId !== id) {
-      setOverId(id);
-      setOverCategory(null);
-    }
-  };
-
-  const handleCategoryDragOver = (categoryName: string) => {
-    setOverCategory(categoryName);
-    setOverId(null);
-  };
-
-  const handleDropOnItem = async (targetId: string) => {
-    // Unlock scroll FIRST
-    if ((window as any).__scrollLock) {
-      window.removeEventListener('scroll', (window as any).__scrollLock);
-      delete (window as any).__scrollLock;
-    }
+  const handleMoveToCategory = async (itemId: string, categoryName: string) => {
+    const item = localItems.find((i: any) => i.id === itemId);
     
-    if (draggedId && draggedId !== targetId) {
-      const draggedItem = localItems.find((i: any) => i.id === draggedId);
-      const targetItem = localItems.find((i: any) => i.id === targetId);
+    if (item && item.category_name !== categoryName) {
+      // Update local state immediately
+      const updatedItems = localItems.map((i: any) => 
+        i.id === itemId 
+          ? { ...i, category_name: categoryName }
+          : i
+      );
+      setLocalItems(updatedItems);
       
-      if (draggedItem && targetItem && draggedItem.category_name !== targetItem.category_name) {
-        // Update local state immediately for instant feedback
-        const updatedItems = localItems.map((item: any) => 
-          item.id === draggedId 
-            ? { ...item, category_name: targetItem.category_name }
-            : item
-        );
-        setLocalItems(updatedItems);
-        
-        // Update database
-        await onUpdate('reorderItems', { activeId: draggedId, overId: targetId });
-      }
+      // Update database
+      await onUpdate('reorderItems', { activeId: itemId, categoryName });
     }
     
-    setDraggedId(null);
-    setOverId(null);
-  };
-
-  const handleDropOnCategory = async (categoryName: string) => {
-    // Unlock scroll FIRST
-    if ((window as any).__scrollLock) {
-      window.removeEventListener('scroll', (window as any).__scrollLock);
-      delete (window as any).__scrollLock;
-    }
-    
-    if (draggedId) {
-      const draggedItem = localItems.find((i: any) => i.id === draggedId);
-      
-      if (draggedItem && draggedItem.category_name !== categoryName) {
-        // Update local state immediately
-        const updatedItems = localItems.map((item: any) => 
-          item.id === draggedId 
-            ? { ...item, category_name: categoryName }
-            : item
-        );
-        setLocalItems(updatedItems);
-        
-        // Update database
-        await onUpdate('reorderItems', { activeId: draggedId, categoryName });
-      }
-    }
-    
-    setDraggedId(null);
-    setOverCategory(null);
+    setContextMenu(null);
   };
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-700">
-      {categories.map((cat: any) => {
-        const catItems = localItems.filter((i: any) => i.category_name === cat.name);
+    <>
+      {/* Instruction Banner */}
+      <div className={`${theme.card} p-4 rounded-[24px] border ${theme.border} mb-6 flex items-center gap-3 shadow-sm`}>
+        <div className={`p-2 rounded-full ${theme.accent}`}>
+          <MousePointer2 size={16} className="text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-bold">Move items between categories</p>
+          <p className="text-xs opacity-60 hidden md:block">Right-click any item or click the Move button</p>
+          <p className="text-xs opacity-60 md:hidden">Click the Move button on any item</p>
+        </div>
+      </div>
 
-        return (
-          <div key={cat.id} className="space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] px-2 opacity-50 flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${theme.accent}`} /> {cat.name}
-            </h3>
-            
-            {catItems.length > 0 ? (
-              <div className="grid grid-cols-1">
-                {catItems.map((item: any) => (
-                  <DraggableItem 
-                    key={item.id} 
-                    item={item} 
-                    members={members} 
-                    getMemberColor={getMemberColor} 
-                    theme={theme} 
-                    onUpdate={onUpdate}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDropOnItem}
-                    isDraggedOver={overId === item.id}
-                  />
-                ))}
-              </div>
-            ) : (
-              <CategoryDropZone 
-                category={cat}
-                theme={theme}
-                onDrop={handleDropOnCategory}
-                onDragOver={handleCategoryDragOver}
-                isOver={overCategory === cat.name}
-              />
-            )}
-            
-            {/* Always show drop zone when dragging */}
-            {draggedId && catItems.length > 0 && (
-              <div>
-                <CategoryDropZone 
-                  category={cat}
+      <div className="space-y-12 animate-in fade-in duration-700">
+        {categories.map((cat: any) => {
+          const catItems = localItems.filter((i: any) => i.category_name === cat.name);
+
+          return (
+            <div key={cat.id} className="space-y-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] px-2 opacity-50 flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${theme.accent}`} /> {cat.name}
+              </h3>
+              
+              {catItems.length > 0 ? (
+                <div className="grid grid-cols-1">
+                  {catItems.map((item: any) => (
+                    <ChecklistItem 
+                      key={item.id} 
+                      item={item} 
+                      members={members} 
+                      getMemberColor={getMemberColor} 
+                      theme={theme} 
+                      onUpdate={onUpdate}
+                      onContextMenu={handleContextMenu}
+                      onMoveClick={handleContextMenu}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyCategory 
+                  categoryName={cat.name}
                   theme={theme}
-                  onDrop={handleDropOnCategory}
-                  onDragOver={handleCategoryDragOver}
-                  isOver={overCategory === cat.name}
                 />
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {contextMenu && (
+        <ContextMenu
+          item={contextMenu.item}
+          categories={categories}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onMoveToCategory={handleMoveToCategory}
+          theme={theme}
+        />
+      )}
+    </>
   );
 }

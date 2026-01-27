@@ -599,8 +599,7 @@ const downloadTripSummary = () => {
       </Overlay>
 
       {/* 5. MOBILE UTILITY BAR: Floating at bottom */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-full shadow-2xl">
-      <NavButton 
+      <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-4 p-3 bg-white/80 backdrop-blur-2xl border border-white/40 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] animate-in slide-in-from-right-8 duration-700">      <NavButton 
     icon={<LinkIcon size={18}/>} 
     label="Invite" 
     onClick={() => setShowInvite(true)} 
