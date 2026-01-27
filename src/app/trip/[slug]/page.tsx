@@ -8,7 +8,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { 
   Target, Sun, Moon, Waves, TreePine, Loader2, 
-  Link as LinkIcon, FileDown, ArrowLeft, LogOut, User as UserIcon
+  Link as LinkIcon, FileDown, ArrowLeft, LogOut, 
+  User as UserIcon, X, Users // Added X for closing modals and Users for the team button
 } from 'lucide-react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
@@ -36,6 +37,11 @@ export default function TripPage() {
   const { slug } = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+
+  // NEW: Overlay Control States
+  const [showInvite, setShowInvite] = useState(false);
+  const [showDirectory, setShowDirectory] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   
   // 1. THEME PERSISTENCE
   const [currentTheme, setCurrentTheme] = useState<keyof typeof themes>('classic');
@@ -110,16 +116,19 @@ const downloadTripSummary = () => {
     yPos += 7;
 
     const checklistData = categoryItems.map(item => {
-      const status = item.is_packed ? '✓' : '○';
+      // Replace brackets with clear, word-based statuses
+      const status = item.is_packed ? 'Completed' : 'Pending'; 
       const assignedTo = item.claimed_by_name && item.claimed_by_name.length > 0 
         ? item.claimed_by_name.join(', ') 
         : '-';
-      return [status, item.item_name, assignedTo];
+      
+      return [item.item_name, assignedTo, status];
     });
 
     autoTable(doc, {
       startY: yPos,
-      head: [['', 'Item', 'Assigned To']],
+      // Added "Status" as the first column header
+      head: [['Item', 'Assigned To','Status']], 
       body: checklistData,
       theme: 'plain',
       headStyles: { 
@@ -130,9 +139,9 @@ const downloadTripSummary = () => {
       },
       bodyStyles: { fontSize: 9 },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 100 },
-        2: { cellWidth: 70 }
+        0: { cellWidth: 75, halign: 'left' },
+        1: { cellWidth: 75 },
+        2: { cellWidth: 30 }
       },
       margin: { left: 14 }
     });
@@ -249,7 +258,7 @@ const downloadTripSummary = () => {
     let i = 0, j = 0;
     while(i < debtors.length && j < creditors.length) {
       const amount = Math.min(Math.abs(debtors[i][1]), creditors[j][1]);
-      instructions.push([debtors[i][0], '→', creditors[j][0], `$${amount.toFixed(2)}`]);
+      instructions.push([debtors[i][0], '--->', creditors[j][0], `$${amount.toFixed(2)}`]);
       debtors[i][1] += amount; creditors[j][1] -= amount;
       if (Math.abs(debtors[i][1]) < 0.01) i++;
       if (creditors[j][1] < 0.01) j++;
@@ -454,96 +463,99 @@ const downloadTripSummary = () => {
   if (loading || authLoading) return <div className={`min-h-screen flex items-center justify-center ${t.bg}`}><Loader2 className="animate-spin" size={48} /></div>;
 
   return (
-    <main className={`min-h-screen ${t.bg} ${t.text} transition-colors duration-500`}>
-      {/* UTILITY HEADER: Breadcrumb, Themes, & Profile */}
-      <div className={`${t.bg} border-b ${t.border} px-4 md:px-12 py-3 flex items-center justify-between`}>
-        <Link href="/" className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:${t.accentText} transition-colors`}>
-          <ArrowLeft size={12} /> Dashboard
-        </Link>
-        <div className="flex items-center gap-6">
-          <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
-            <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`}><Sun size={14}/></button>
-            <button onClick={() => handleThemeChange('midnight')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'midnight' ? t.accent + ' text-white' : t.subtext}`}><Moon size={14}/></button>
-            <button onClick={() => handleThemeChange('ocean')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'ocean' ? t.accent + ' text-white' : t.subtext}`}><Waves size={14}/></button>
-            <button onClick={() => handleThemeChange('forest')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'forest' ? t.accent + ' text-white' : t.subtext}`}><TreePine size={14}/></button>
-          </div>
-          <div className="flex items-center gap-2">
-            <UserIcon size={12} className={t.accentText} />
-            <p className="text-[9px] font-black uppercase">{user?.email?.split('@')[0]}</p>
-          </div>
-          <button onClick={() => supabase.auth.signOut()} className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:text-red-500 transition-colors`}>
-            Logout <LogOut size={12} />
-          </button>
-        </div>
-      </div>
-
-      {/* STICKY NAV: Centered improperly spacer */}
-      <nav className={`sticky top-0 z-50 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
-  <div className="max-w-[1440px] mx-auto grid grid-cols-12 items-end">
-    <div className="col-span-4" /> 
-    <div className="col-span-8 flex justify-between items-end">
-      <div className="flex gap-10">
-        {(['checklist', 'itinerary', 'expenses'] as const).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 px-2 font-black text-[11px] uppercase tracking-[0.15em] relative transition-all ${activeTab === tab ? `${t.accentText}` : 'text-slate-400 hover:text-slate-600'}`}>
-            {tab}
-            {activeTab === tab && <div className={`absolute bottom-0 left-0 right-0 h-1 ${t.accent} rounded-t-full animate-in slide-in-from-bottom-1`} />}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-4 pb-4">
-        {/* Full Trip Summary Export */}
-        <button 
-          onClick={downloadTripSummary} 
-          className="bg-purple-600 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-lg hover:bg-purple-700 transition-colors"
-        >
-          <FileDown size={14}/> FULL SUMMARY
-        </button>
-        
-        {activeTab === 'expenses' && expenses.length > 0 && (
-          <button onClick={downloadExpensePDF} className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-lg"><FileDown size={14}/> EXPENSES PDF</button>
-        )}
-        <button onClick={() => setIsBriefingOpen(true)} className={`${t.accent} text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black uppercase text-[9px] shadow-xl`}><Target size={14}/> BRIEFING</button>
-      </div>
+    <main className={`min-h-screen ${t.bg} ${t.text} transition-colors duration-500 pb-24 md:pb-0`}>
+{/* UTILITY HEADER: Breadcrumb, Themes, & Profile */}
+<div className={`${t.bg} border-b ${t.border} px-4 md:px-12 py-3 flex items-center justify-between`}>
+  <Link href="/" className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:${t.accentText} transition-colors`}>
+    <ArrowLeft size={12} /> Dashboard
+  </Link>
+  
+  <div className="flex items-center gap-6">
+    {/* Theme Toggle Section */}
+    <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
+      <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`}><Sun size={14}/></button>
+      <button onClick={() => handleThemeChange('midnight')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'midnight' ? t.accent + ' text-white' : t.subtext}`}><Moon size={14}/></button>
+      <button onClick={() => handleThemeChange('ocean')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'ocean' ? t.accent + ' text-white' : t.subtext}`}><Waves size={14}/></button>
+      <button onClick={() => handleThemeChange('forest')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'forest' ? t.accent + ' text-white' : t.subtext}`}><TreePine size={14}/></button>
     </div>
+
+    {/* RESTORED: Profile Display */}
+    <div className="flex items-center gap-2 px-4 border-l border-slate-100">
+      <UserIcon size={14} className={t.accentText} />
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+        {user?.email?.split('@')[0]}
+      </p>
+    </div>
+
+    {/* RESTORED: Logout Button */}
+    <button 
+      onClick={() => supabase.auth.signOut()} 
+      className={`${t.subtext} flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:text-red-500 transition-colors`}
+    >
+      Logout <LogOut size={14} />
+    </button>
   </div>
-</nav>
+</div>
+      {/* 2. STICKY DASHBOARD NAV */}
+      <nav className={`sticky top-0 z-40 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
+        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex gap-8">
+            {(['checklist', 'itinerary', 'expenses'] as const).map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 px-2 font-black text-[11px] uppercase tracking-[0.15em] relative transition-all ${activeTab === tab ? `${t.accentText}` : 'text-slate-400 hover:text-slate-600'}`}>
+                {tab}
+                {activeTab === tab && <div className={`absolute bottom-0 left-0 right-0 h-1 ${t.accent} rounded-t-full`} />}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 pb-4">
+            <button onClick={downloadTripSummary} className="bg-purple-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-black uppercase text-[8px] shadow-lg"><FileDown size={12}/> SUMMARY</button>
+            <button onClick={() => setIsBriefingOpen(true)} className={`${t.accent} text-white px-4 py-2 rounded-xl flex items-center gap-2 font-black uppercase text-[8px] shadow-xl`}><Target size={12}/> BRIEFING</button>
+          </div>
+        </div>
+      </nav>
+
+      {/* 3. FULL-WIDTH CONTENT AREA */}
       <div className="max-w-[1440px] mx-auto p-4 md:p-12">
         <ActionBriefing isOpen={isBriefingOpen} onClose={() => setIsBriefingOpen(false)} items={items} user={user} theme={t} />
-        <div className="grid grid-cols-12 gap-10">
-          
-          {/* SIDEBAR: LEFT */}
-          <div className="col-span-4 space-y-8 animate-in slide-in-from-left-4 duration-700">
-            {isOwner && (
-               <div className={`${t.card} p-6 rounded-[32px] border ${t.border} flex items-center justify-between shadow-sm`}>
-                 <div className="flex items-center gap-3"><LinkIcon size={18} className={t.accentText}/><p className="text-[10px] font-black uppercase tracking-widest">Invite Link</p></div>
-                 <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${tripData.share_token}`); setCopied(true); setTimeout(()=>setCopied(false), 2000); }} className={`${t.accent} text-white px-5 py-2 rounded-xl font-black uppercase text-[9px]`}>{copied ? 'COPIED' : 'COPY'}</button>
-               </div>
-            )}
-            <MemberDirectory members={tripMembers} theme={t} isOwner={isOwner} tripSlug={slug as string} onMemberRemoved={loadInitialData} logAction={() => {}} />
-            <ActivityFeed activities={activities} theme={t} />
-            <TravelAd theme={t} />
-          </div>
 
-          {/* MAIN CONTENT AREA */}
-          <div className="col-span-8 space-y-10 animate-in slide-in-from-right-4 duration-700">
-            {activeTab === 'checklist' && (
-              <form onSubmit={async (e) => {
-                e.preventDefault(); if(!newItem) return;
-                const { data } = await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: selectedCategory }]).select().single();
-                if(data) { logAction('added', newItem); setNewItem(''); }
-              }} className={`${t.card} p-6 rounded-[32px] border ${t.border} mb-8 space-y-4 shadow-sm`}>
-                <div className="flex gap-2">
-                  <input className={`flex-grow p-4 ${t.bg} rounded-2xl focus:outline-none font-bold`} placeholder="Add expedition item..." value={newItem} onChange={(e) => setNewItem(e.target.value)} />
-                  <button className={`${t.accent} text-white px-8 py-2 rounded-2xl font-black uppercase text-[10px]`}>ADD</button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {dbCategories.map(cat => (
-                    <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.name)} className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all ${selectedCategory === cat.name ? `${t.accent} text-white shadow-md` : `${t.bg} ${t.subtext}`}`}>{cat.name}</button>
-                  ))}
-                </div>
-              </form>
-            )}
-            {activeTab === 'itinerary' && (
+        <div className="w-full space-y-10">
+          {/* Add Item Form (Now spans full width) */}
+          {activeTab === 'checklist' && (
+  <div className="flex justify-center w-full px-2">
+    <form onSubmit={async (e) => {
+      e.preventDefault(); if(!newItem) return;
+      const { data } = await supabase.from('checklist_items').insert([{ item_name: newItem, trip_slug: slug, category_name: selectedCategory }]).select().single();
+      if(data) { logAction('added', newItem); setNewItem(''); }
+    }} className={`${t.card} p-2 md:p-3 rounded-[40px] border ${t.border} mb-8 shadow-sm flex items-center gap-2 md:gap-3 w-full max-w-4xl relative overflow-hidden`}>
+      
+      {/* 1. ADAPTIVE SELECTOR: Hidden on very small screens or shrunk */}
+      <select 
+        value={selectedCategory} 
+        onChange={(e) => setSelectedCategory(e.target.value)}
+        className={`${t.bg} px-3 md:px-6 py-2 md:py-3 rounded-[20px] md:rounded-[30px] text-[8px] md:text-[10px] font-black uppercase tracking-widest ${t.subtext} outline-none cursor-pointer border-none max-w-[70px] md:max-w-none`}
+      >
+          {dbCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+      </select>
+
+      {/* 2. FLEXIBLE INPUT: min-w-0 is the critical fix for boundaries */}
+      <input 
+        className="flex-1 min-w-0 p-3 bg-transparent focus:outline-none font-bold text-sm md:text-base placeholder:text-slate-200" 
+        placeholder="Add expedition item..." 
+        value={newItem} 
+        onChange={(e) => setNewItem(e.target.value)} 
+      />
+      
+      {/* 3. PINNED BUTTON: whitespace-nowrap prevents text wrapping */}
+      <button 
+        type="submit"
+        className={`${t.accent} text-white px-6 md:px-10 py-3 md:py-4 rounded-[30px] font-black uppercase text-[9px] md:text-[10px] whitespace-nowrap transition-transform active:scale-95`}
+      >
+        ADD
+      </button>
+    </form>
+  </div>
+)}
+{activeTab === 'itinerary' && (
               <form onSubmit={async (e) => {
                 e.preventDefault(); if(!eventTitle || !eventDate) return;
                 await supabase.from('itinerary_events').insert([{ title: eventTitle, event_date: eventDate, trip_slug: slug }]);
@@ -556,16 +568,95 @@ const downloadTripSummary = () => {
                 </div>
               </form>
             )}
-            {activeTab === 'expenses' && <ExpenseModule expenses={expenses} members={tripMembers} theme={t} onAdd={(exp: any) => handleUpdate('addExpense', exp)} />}
-            
-            <div className="mt-6">
-              {activeTab === 'checklist' && <ChecklistModule items={items} categories={dbCategories} members={tripMembers} theme={t} onUpdate={handleUpdate} />}
-              {activeTab === 'itinerary' && <ItineraryModule events={events} theme={t} onUpdate={handleUpdate} />}
-              {activeTab === 'expenses' && <ExpenseList expenses={expenses} theme={t} onDelete={(id: string) => handleUpdate('deleteExpense', id)} />}
-            </div>
+                        {activeTab === 'expenses' && <ExpenseModule expenses={expenses} members={tripMembers} theme={t} onAdd={(exp: any) => handleUpdate('addExpense', exp)} />}
+
+          
+          <div className="w-full overflow-hidden">
+            {activeTab === 'checklist' && <ChecklistModule items={items} categories={dbCategories} members={tripMembers} theme={t} onUpdate={handleUpdate} />}
+            {activeTab === 'itinerary' && <ItineraryModule events={events} theme={t} onUpdate={handleUpdate} />}
+            {activeTab === 'expenses' && <ExpenseList expenses={expenses} theme={t} onDelete={(id: string) => handleUpdate('deleteExpense', id)} />}
           </div>
         </div>
       </div>
+
+      {/* 4. MODAL OVERLAYS (Invite, Directory, Activity) */}
+      <Overlay isOpen={showInvite} onClose={() => setShowInvite(false)} title="Invite Link" theme={t}>
+        <div className="flex flex-col gap-4">
+          <p className="text-[10px] text-slate-400 uppercase font-black">Share with your group</p>
+          <div className="flex items-center justify-between gap-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+             <span className="truncate text-xs font-mono">{window.location.origin}/join/{tripData?.share_token}</span>
+             <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${tripData.share_token}`); setCopied(true); setTimeout(()=>setCopied(false), 2000); }} className={`${t.accent} text-white px-4 py-2 rounded-xl text-[9px] font-black`}>{copied ? 'COPIED' : 'COPY'}</button>
+          </div>
+        </div>
+      </Overlay>
+
+      <Overlay isOpen={showDirectory} onClose={() => setShowDirectory(false)} title="Group Directory" theme={t}>
+        <MemberDirectory members={tripMembers} theme={t} isOwner={isOwner} tripSlug={slug as string} onMemberRemoved={loadInitialData} logAction={() => {}} />
+      </Overlay>
+
+      <Overlay isOpen={showActivity} onClose={() => setShowActivity(false)} title="Live Activity" theme={t}>
+        <ActivityFeed activities={activities} theme={t} />
+      </Overlay>
+
+      {/* 5. MOBILE UTILITY BAR: Floating at bottom */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-full shadow-2xl">
+      <NavButton 
+    icon={<LinkIcon size={18}/>} 
+    label="Invite" 
+    onClick={() => setShowInvite(true)} 
+    iconColor="text-blue-500" 
+    bgColor="bg-blue-50/80" 
+  />
+  
+  <NavButton 
+    icon={<Users size={18}/>} 
+    label="Team" 
+    onClick={() => setShowDirectory(true)} 
+    iconColor="text-red-600" 
+    bgColor="bg-red-100/60" 
+  />
+  
+  <NavButton 
+    icon={<Target size={18}/>} 
+    label="Logs" 
+    onClick={() => setShowActivity(true)} 
+    iconColor="text-green-700" 
+    bgColor="bg-green-200/40" 
+  />
+      </div>
     </main>
+  );
+}
+
+// Sub-components for UI Cleanliness
+function Overlay({ isOpen, onClose, title, children, theme }: any) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className={`${theme.card} w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden border ${theme.border} animate-in zoom-in-95 duration-300`}>
+        <div className="flex items-center justify-between p-8 border-b border-slate-50">
+          <h2 className="text-[12px] font-black uppercase tracking-widest">{title}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full text-slate-300"><X size={20}/></button>
+        </div>
+        <div className="p-8 max-h-[70vh] overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function NavButton({ icon, label, onClick, iconColor, bgColor }: any) {
+  return (
+    <button 
+      onClick={onClick} 
+      className="flex flex-col items-center gap-1.5 px-4 py-2 rounded-[24px] hover:bg-slate-50 transition-all group"
+    >
+      {/* Fancy Icon Container: Added background glaze and scale effect */}
+      <div className={`p-3 rounded-2xl ${bgColor} ${iconColor} transition-all group-hover:scale-110 group-active:scale-95 shadow-sm`}>
+        {icon}
+      </div>
+      <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest group-hover:text-slate-600 transition-colors">
+        {label}
+      </span>
+    </button>
   );
 }
