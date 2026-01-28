@@ -467,11 +467,49 @@ const downloadTripSummary = () => {
   return (
     <main className={`min-h-screen ${t.bg} ${t.text} transition-colors duration-500 pb-24 md:pb-0`}>
 {/* UTILITY HEADER: Breadcrumb, Themes, & Profile */}
-<div className={`${t.bg} border-b ${t.border} px-4 md:px-12 py-3 flex items-center justify-between`}>
+<div className={`${t.bg} border-b ${t.border} px-4 md:px-16 py-3 flex items-center justify-between`}>
   <Link href="/" className={`${t.subtext} flex items-center gap-2 font-black text-[9px] uppercase hover:${t.accentText} transition-colors`}>
-    <ArrowLeft size={12} /> Dashboard
+    <ArrowLeft size={16} /> Dashboard
   </Link>
+  <div></div>
+  <div></div>
+  <div></div>
+  <div></div>
+  <div></div>
+
+
+   {/* 5. MOBILE UTILITY BAR: Floating at bottom */}
+   <div className="flex flex-wrap items-right justify-end gap-3 mb-8 p-4 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[30px] shadow-sm">   <NavButton 
+    icon={<LinkIcon size={18}/>} 
+    label="Invite" 
+    onClick={() => setShowInvite(true)} 
+    iconColor="text-blue-500" 
+    bgColor="bg-blue-50/80" 
+  />
   
+  <NavButton 
+    icon={<Users size={18}/>} 
+    label="Team" 
+    onClick={() => setShowDirectory(true)} 
+    iconColor="text-red-600" 
+    bgColor="bg-red-100/60" 
+  />
+  
+  <NavButton 
+    icon={<Target size={18}/>} 
+    label="Logs" 
+    onClick={() => setShowActivity(true)} 
+    iconColor="text-green-700" 
+    bgColor="bg-green-200/40" 
+  />
+  <NavButton 
+    icon={<MessageSquare size={18}/>} 
+    label="Chat" 
+    onClick={() => setShowChat(!showChat)} 
+    iconColor="text-orange-500" 
+    bgColor="bg-orange-50/80" 
+  />
+      </div>
   <div className="flex items-center gap-6">
     {/* Theme Toggle Section */}
     <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
@@ -582,7 +620,7 @@ const downloadTripSummary = () => {
       </div>
 {/* CHAT OVERLAY: Ensure this is NOT inside another {activeTab === ...} block */}
 {showChat && (
-  <div className="fixed right-24 top-1/2 -translate-y-1/2 z-[70] w-[350px] animate-in fade-in slide-in-from-right-4 duration-300">
+  <div className="fixed inset-0 m-auto z-[70] w-[450px] h-fit animate-in fade-in zoom-in-95 duration-300">
     <ChatModule 
       slug={slug} 
       user={user} 
@@ -610,38 +648,7 @@ const downloadTripSummary = () => {
         <ActivityFeed activities={activities} theme={t} />
       </Overlay>
 
-      {/* 5. MOBILE UTILITY BAR: Floating at bottom */}
-      <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-4 p-3 bg-white/80 backdrop-blur-2xl border border-white/40 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] animate-in slide-in-from-right-8 duration-700">      <NavButton 
-    icon={<LinkIcon size={18}/>} 
-    label="Invite" 
-    onClick={() => setShowInvite(true)} 
-    iconColor="text-blue-500" 
-    bgColor="bg-blue-50/80" 
-  />
-  
-  <NavButton 
-    icon={<Users size={18}/>} 
-    label="Team" 
-    onClick={() => setShowDirectory(true)} 
-    iconColor="text-red-600" 
-    bgColor="bg-red-100/60" 
-  />
-  
-  <NavButton 
-    icon={<Target size={18}/>} 
-    label="Logs" 
-    onClick={() => setShowActivity(true)} 
-    iconColor="text-green-700" 
-    bgColor="bg-green-200/40" 
-  />
-  <NavButton 
-    icon={<MessageSquare size={18}/>} 
-    label="Chat" 
-    onClick={() => setShowChat(!showChat)} 
-    iconColor="text-orange-500" 
-    bgColor="bg-orange-50/80" 
-  />
-      </div>
+     
     </main>
   );
 }

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter } from "next/font/google"; // 1. RESTORE IMPORT
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
-import Script from "next/script";
 
+// 2. INITIALIZE THE FONT
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -19,15 +19,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* GOOGLE ADSENSE SDK */}
-        {/* Replace ca-pub-XXXXXXXXXXXXXXXX with your actual Publisher ID from AdSense */}
-        <Script
+        {/* CORRECTED: Raw script tag avoids data-nscript injection */}
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7325718702070526"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        ></script>
       </head>
+      {/* 3. APPLY FONT TO BODY */}
       <body className={inter.className}>
         <AuthProvider>
           {children}

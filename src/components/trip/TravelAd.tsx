@@ -1,58 +1,70 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Plus, ShieldCheck, Wine, Luggage, Loader2, ExternalLink } from 'lucide-react';
+import { ShoppingBag, ExternalLink } from 'lucide-react';
 
 export default function TravelAd({ theme }: { theme: any }) {
   const [adLoaded, setAdLoaded] = useState(false);
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const adClient = isDevelopment ? "ca-pub-3940256099942544" : "ca-pub-7325718702070526";
-  const adSlot = isDevelopment ? "1033173712" : "5698172557";
+  const adClient = "ca-pub-7325718702070526"; // Matches layout.tsx
+  const adSlot = "5698172557"; 
 
   const fallbackAds = useMemo(() => [
-    { title: "Universal Power Adapter", desc: "Best for India & International", icon: <Plus size={14}/> },
-    { title: "Family Travel Insurance", desc: "Coverage for 5 Families", icon: <ShieldCheck size={14}/> },
-    { title: "Sweet Red Collection", desc: "High-alcohol, no added sugar", icon: <Wine size={14}/> },
-    { title: "Premium Luggage Set", desc: "Durable for Shirdi Trip", icon: <Luggage size={14}/> }
+    { title: "Universal Power Adapter", desc: "Best for India Travel", link: "#" },
+    { title: "Travel Insurance", desc: "Group Coverage for 7 Adults", link: "#" }
   ], []);
 
   const [randomAd] = useState(() => fallbackAds[Math.floor(Math.random() * fallbackAds.length)]);
 
   useEffect(() => {
-    // Delay solves 'availableWidth=0' by letting the layout settle
-    const timer = setTimeout(() => {
+    // 1. Recursive check ensures we don't 'push' until SODAR/SDK is ready 
+    const initAd = () => {
       try {
-        if (typeof window !== 'undefined' && window.adsbygoogle) {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        if (typeof window !== 'undefined' && (window as any).adsbygoogle) {
+          ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
           setAdLoaded(true);
         }
-      } catch (err) { console.error("AdSense SDK Error:", err); }
-    }, 1200); 
+      } catch (e) { console.error("AdSense Error:", e); }
+    };
+
+    // 2. 2-second delay gives the JS file you found time to validate the environment 
+    const timer = setTimeout(initAd, 2000); 
     return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <div className={`${theme.card} p-6 rounded-[32px] border ${theme.border} shadow-sm mt-8 overflow-hidden relative group`}>
-      <div className="flex items-center gap-2 mb-4">
-        <ShoppingBag size={16} className={theme.accentText} />
-        <h3 className="text-[10px] font-black uppercase tracking-widest">Sponsored Deals</h3>
-      </div>
-      <div className="w-full min-h-[250px] bg-slate-50/50 rounded-2xl relative border border-slate-100 overflow-hidden">
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <ins className="adsbygoogle" style={{ display: 'block', width: '100%', height: '100%' }} data-ad-client={adClient} data-ad-slot={adSlot} data-ad-format="auto" data-full-width-responsive="true"></ins>
+ // src/components/trip/TravelAd.tsx
+
+return (
+  <div className="w-full max-w-[1600px] mx-auto mb-6 px-4">
+    <div className={`${theme.card} p-2 px-4 rounded-[20px] border ${theme.border} flex items-center justify-between min-h-[60px] shadow-sm relative overflow-hidden`}>
+      
+      {/* Left side: Icon and Text */}
+      <div className="flex items-center gap-3 overflow-hidden shrink-0">
+        <div className={`p-2 rounded-lg ${theme.bg} ${theme.accentText}`}>
+          <ShoppingBag size={14} />
         </div>
-        {!adLoaded ? (
-          <div className="absolute inset-0 flex items-center justify-center animate-pulse"><Loader2 className={theme.accentText} size={24}/></div>
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-700">
-             <div className={`w-12 h-12 rounded-full ${theme.bg} flex items-center justify-center mb-4 ${theme.accentText}`}>{randomAd.icon}</div>
-             <p className="text-xs font-black uppercase tracking-tighter mb-1">{randomAd.title}</p>
-             <p className={`${theme.subtext} text-[10px] font-medium mb-4`}>{randomAd.desc}</p>
-             <button className={`${theme.accent} text-white px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg`}>
-               Get Deal <ExternalLink size={10} className="inline ml-1" />
-             </button>
-          </div>
-        )}
+        <div className="truncate">
+          <p className="text-[9px] font-black uppercase tracking-tighter">{randomAd.title}</p>
+        </div>
       </div>
+
+      {/* FIXED: Standard dimensions to avoid 400 error */}
+      {/* FIXED AD CONTAINER: Prevents the h=280 conflict */}
+<div className="flex-1 max-w-[728px] h-[90px] mx-4 overflow-hidden flex items-center justify-center">
+  <ins
+    className="adsbygoogle"
+    style={{ display: 'inline-block', width: '728px', height: '90px' }}
+    data-ad-client="ca-pub-7325718702070526"
+    data-ad-slot="5698172557"
+    /* CRITICAL: Remove 'auto' and 'full-width-responsive' */
+    data-ad-format="" 
+    data-adtest="on"
+    data-full-width-responsive="false"
+  ></ins>
+</div>
+
+      <button className={`${theme.accent} text-white px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest shrink-0`}>
+        View <ExternalLink size={10} className="inline ml-1" />
+      </button>
     </div>
-  );
+  </div>
+);
 }
