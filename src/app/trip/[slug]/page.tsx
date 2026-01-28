@@ -479,7 +479,8 @@ const downloadTripSummary = () => {
 
 
    {/* 5. MOBILE UTILITY BAR: Floating at bottom */}
-   <div className="flex flex-wrap items-right justify-end gap-3 mb-8 p-4 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[30px] shadow-sm">   <NavButton 
+   <div className="flex flex-row items-center justify-center gap-1 mb-8 p-2 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[40px] shadow-sm max-w-fit mx-auto">
+      <NavButton 
     icon={<LinkIcon size={18}/>} 
     label="Invite" 
     onClick={() => setShowInvite(true)} 
