@@ -79,9 +79,8 @@ export default function TripPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
-
-  const t = themes[currentTheme] || themes.classic;
-
+  const savedTheme = localStorage.getItem('app_theme') as keyof typeof themes;
+  const t = themes[savedTheme] || themes.classic;
   // Add this function to your TripPage component in page.tsx
 
 const downloadTripSummary = () => {
@@ -511,31 +510,6 @@ const downloadTripSummary = () => {
     bgColor="bg-orange-50/80" 
   />
       </div>
-  <div className="flex items-center gap-6">
-    {/* Theme Toggle Section */}
-    <div className={`${t.card} px-3 py-1.5 rounded-xl flex items-center gap-3 border ${t.border}`}>
-      <button onClick={() => handleThemeChange('classic')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'classic' ? t.accent + ' text-white' : t.subtext}`}><Sun size={14}/></button>
-      <button onClick={() => handleThemeChange('midnight')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'midnight' ? t.accent + ' text-white' : t.subtext}`}><Moon size={14}/></button>
-      <button onClick={() => handleThemeChange('ocean')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'ocean' ? t.accent + ' text-white' : t.subtext}`}><Waves size={14}/></button>
-      <button onClick={() => handleThemeChange('forest')} className={`p-1.5 rounded-lg transition-all ${currentTheme === 'forest' ? t.accent + ' text-white' : t.subtext}`}><TreePine size={14}/></button>
-    </div>
-
-    {/* RESTORED: Profile Display */}
-    <div className="flex items-center gap-2 px-4 border-l border-slate-100">
-      <UserIcon size={14} className={t.accentText} />
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">
-        {user?.email?.split('@')[0]}
-      </p>
-    </div>
-
-    {/* RESTORED: Logout Button */}
-    <button 
-      onClick={() => supabase.auth.signOut()} 
-      className={`${t.subtext} flex items-center gap-2 font-black text-[10px] uppercase tracking-widest hover:text-red-500 transition-colors`}
-    >
-      Logout <LogOut size={14} />
-    </button>
-  </div>
 </div>
       {/* 2. STICKY DASHBOARD NAV */}
       <nav className={`sticky top-0 z-40 ${t.card} border-b ${t.border} pt-8 pb-0 px-4 md:px-12 shadow-sm`}>
@@ -621,7 +595,7 @@ const downloadTripSummary = () => {
       </div>
 {/* CHAT OVERLAY: Ensure this is NOT inside another {activeTab === ...} block */}
 {showChat && (
-  <div className="fixed inset-0 m-auto z-[70] w-[450px] h-fit animate-in fade-in zoom-in-95 duration-300">
+  <div className="fixed inset-5 m-auto z-[100] w-[350px] h-fit animate-in fade-in zoom-in-90 duration-300">
     <ChatModule 
       slug={slug} 
       user={user} 
